@@ -1,25 +1,27 @@
 package com.raj.arena.model;
-
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(name = "matches")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class User {
+public class Match {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String name;
-    private String username;
-    private int elo;
-    private int total_game_time;
-    private String encrypted_password;
-    private LocalDateTime created_at;
+
+    private Long p1;
+    private Long p2;
+    private Long problemId;
+    private int p1Time;
+    private int p2Time;
+    private Long winner;
+    private int p1EloChange;
+    private int p2EloChange;
 }
