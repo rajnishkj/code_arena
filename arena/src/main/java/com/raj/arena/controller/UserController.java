@@ -1,4 +1,4 @@
-package com.raj.arena.contoller;
+package com.raj.arena.controller;
 
 import com.raj.arena.model.User;
 import com.raj.arena.service.UserService;

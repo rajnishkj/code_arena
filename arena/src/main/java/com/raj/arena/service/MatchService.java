@@ -1,6 +1,7 @@
 package com.raj.arena.service;
 
 import com.raj.arena.model.Match;
+import com.raj.arena.model.User;
 import com.raj.arena.repository.MatchRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
