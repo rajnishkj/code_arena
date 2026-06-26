@@ -16,7 +16,23 @@ public class Problem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String problem;
-    private int avgSolvingTime;
-    private int eloRange;
+    private String title;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    @Column(columnDefinition = "TEXT")
+    private String inputFormat;
+
+    @Column(columnDefinition = "TEXT")
+    private String outputFormat;
+
+    @Column(columnDefinition = "TEXT")
+    private String constraints;
+
+    private String difficulty; // EASY, MEDIUM, HARD
+
+    private int rating; // 800, 1200, 1600 etc.
+
+    private int avgSolvingTime; // in seconds
 }

@@ -25,3 +25,4 @@ public class Match {
     private int p1EloChange;
     private int p2EloChange;
 }
+
