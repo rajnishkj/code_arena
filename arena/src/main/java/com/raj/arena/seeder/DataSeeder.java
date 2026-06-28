@@ -41,9 +41,14 @@ public class DataSeeder implements CommandLineRunner {
                 tc("3 5", "8", true, p),
                 tc("10 20", "30", true, p),
                 tc("1000000000 1000000000", "2000000000", false, p),
-                tc("0 0", "0", false, p)
+                tc("0 0", "0", false, p),
+                tc("1 1", "2", false, p),
+                tc("999999999 1", "1000000000", false, p),
+                tc("123456789 987654321", "1111111110", false, p),
+                tc("500000000 500000000", "1000000000", false, p),
+                tc("7 3", "10", false, p),
+                tc("42 58", "100", false, p)
         ));
-
         problemRepository.save(p);
     }
 
@@ -62,9 +67,14 @@ public class DataSeeder implements CommandLineRunner {
                 tc("4", "EVEN", true, p),
                 tc("7", "ODD", true, p),
                 tc("1000000000", "EVEN", false, p),
-                tc("1", "ODD", false, p)
+                tc("1", "ODD", false, p),
+                tc("2", "EVEN", false, p),
+                tc("999999999", "ODD", false, p),
+                tc("100", "EVEN", false, p),
+                tc("13", "ODD", false, p),
+                tc("256", "EVEN", false, p),
+                tc("777", "ODD", false, p)
         ));
-
         problemRepository.save(p);
     }
 
@@ -83,9 +93,14 @@ public class DataSeeder implements CommandLineRunner {
                 tc("5", "1\n2\nFizz\n4\nBuzz", true, p),
                 tc("3", "1\n2\nFizz", true, p),
                 tc("15", "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz", false, p),
-                tc("1", "1", false, p)
+                tc("1", "1", false, p),
+                tc("6", "1\n2\nFizz\n4\nBuzz\nFizz", false, p),
+                tc("10", "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz", false, p),
+                tc("2", "1\n2", false, p),
+                tc("9", "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz", false, p),
+                tc("20", "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz\n16\n17\nFizz\n19\nBuzz", false, p),
+                tc("4", "1\n2\nFizz\n4", false, p)
         ));
-
         problemRepository.save(p);
     }
 
@@ -104,9 +119,14 @@ public class DataSeeder implements CommandLineRunner {
                 tc("hello", "olleh", true, p),
                 tc("abcd", "dcba", true, p),
                 tc("a", "a", false, p),
-                tc("racecar", "racecar", false, p)
+                tc("racecar", "racecar", false, p),
+                tc("python", "nohtyp", false, p),
+                tc("openai", "ianepo", false, p),
+                tc("z", "z", false, p),
+                tc("abcdefgh", "hgfedcba", false, p),
+                tc("madam", "madam", false, p),
+                tc("coding", "gnidoc", false, p)
         ));
-
         problemRepository.save(p);
     }
 
@@ -125,9 +145,14 @@ public class DataSeeder implements CommandLineRunner {
                 tc("5 9\n1 2 3 4 5", "2", true, p),
                 tc("4 6\n1 5 3 3", "2", true, p),
                 tc("3 10\n1 2 3", "0", false, p),
-                tc("6 0\n-1 1 -2 2 -3 3", "3", false, p)
+                tc("6 0\n-1 1 -2 2 -3 3", "3", false, p),
+                tc("5 5\n1 4 2 3 0", "2", false, p),
+                tc("4 8\n4 4 4 4", "6", false, p),
+                tc("5 1\n0 1 0 1 0", "4", false, p),
+                tc("3 -1\n-2 1 0", "1", false, p),
+                tc("6 10\n5 5 5 5 5 5", "15", false, p),
+                tc("2 1000000000\n500000000 500000000", "1", false, p)
         ));
-
         problemRepository.save(p);
     }
 
