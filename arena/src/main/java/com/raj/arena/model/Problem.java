@@ -1,9 +1,12 @@
 package com.raj.arena.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "problems")
@@ -30,9 +33,20 @@ public class Problem {
     @Column(columnDefinition = "TEXT")
     private String constraints;
 
-    private String difficulty; // EASY, MEDIUM, HARD
+    private String difficulty;
 
-    private int rating; // 800, 1200, 1600 etc.
+    private int rating;
 
-    private int avgSolvingTime; // in seconds
+    private int avgSolvingTime;
+
+    @JsonManagedReference
+    @OneToMany(mappedBy = "problem", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    private List<TestCase> testCases = new ArrayList<>();
+
+    public String getEloRange() {
+        if (rating <= 900) return "0-1000";
+        if (rating <= 1300) return "1000-1400";
+        if (rating <= 1600) return "1400-1800";
+        return "1800+";
+    }
 }

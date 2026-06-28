@@ -25,7 +25,7 @@ public class ProblemService {
 
     public List<Problem> getProblemsByEloRange(int elo) {
         return problemRepository.findAll().stream()
-                .filter(p -> Math.abs(p.getEloRange() - elo) <= 200)
+                .filter(p -> Math.abs(p.getRating() - elo) <= 200)
                 .collect(Collectors.toList());
     }
 }
