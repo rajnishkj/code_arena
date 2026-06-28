@@ -29,6 +29,10 @@ public class UserService {
         user.setElo(user.getElo() + eloChange);
         return userRepository.save(user);
     }
+    public User getUserById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
 
     public List<User> getLeaderboard() {
         return userRepository.findAll(Sort.by(Sort.Direction.DESC, "elo"));
