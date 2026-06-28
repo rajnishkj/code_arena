@@ -79,22 +79,24 @@ const Match = () => {
 
     const handleSubmit = async () => {
         try {
+            const allTestCases = problem?.testCases || [];
+
             const results = await Promise.all(
-                sampleTestCases.map(async (tc) => {
+                allTestCases.map(async (tc) => {
                     const judgeRes = await API.post(
                         `/judge/execute?language=python&version=3.10.0&stdin=${encodeURIComponent(tc.input)}`,
                         code,
                         { headers: { 'Content-Type': 'text/plain' } }
                     );
-                    console.log(typeof judgeRes.data, judgeRes.data);
-                    return {
-                        input: tc.input,
-                        expected: tc.expectedOutput,
-                        actual: String(judgeRes.data).trim(),
-                        passed: String(judgeRes.data).trim() === tc.expectedOutput.trim()
-                    };
+                    return String(judgeRes.data).trim() === tc.expectedOutput.trim();
                 })
             );
+
+            const passed = results.filter(Boolean).length;
+            const total = results.length;
+            setResult({ passed, total, results });
+
+            setActiveTab('output');
 
             await API.post('/matches/complete', null, {
                 params: {
@@ -104,11 +106,8 @@ const Match = () => {
                     p2Time: 300 - timer
                 }
             });
-
-            setResult(results);
-            setActiveTab('output');
         } catch (err) {
-            setResult('Error: ' + err.message);
+            setResult({ error: err.message });
             setActiveTab('output');
         }
     };
@@ -242,20 +241,32 @@ const Match = () => {
                                 </div>
                             ))
                         )}
+
                         {activeTab === 'output' && (
-                            Array.isArray(result) ? (
-                                result.map((r, i) => (
-                                    <div key={i} style={{ marginBottom: '12px' }}>
-                                        <p style={{ margin: '0 0 4px', color: r.passed ? '#4ec94e' : '#ff4444' }}>
-                                            Case {i + 1}: {r.passed ? '✅ Passed' : '❌ Failed'}
-                                        </p>
-                                        <p style={{ margin: '0 0 2px' }}><span style={{ color: '#9cdcfe' }}>Input:</span> <code>{r.input}</code></p>
-                                        <p style={{ margin: '0 0 2px' }}><span style={{ color: '#9cdcfe' }}>Expected:</span> <code>{r.expected}</code></p>
-                                        <p style={{ margin: 0 }}><span style={{ color: '#9cdcfe' }}>Got:</span> <code>{r.actual}</code></p>
+                            result?.error ? (
+                                <pre style={{ color: '#ff4444', margin: 0 }}>{result.error}</pre>
+                            ) : result ? (
+                                <div>
+                                    <p style={{ color: result.passed === result.total ? '#4ec94e' : '#ffa500', fontWeight: 'bold', margin: '0 0 12px' }}>
+                                        {result.passed} / {result.total} Test Cases Passed
+                                    </p>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                        {result.results.map((passed, i) => (
+                                            <div key={i} style={{
+                                                padding: '6px 12px',
+                                                borderRadius: '6px',
+                                                background: passed ? '#1a472a' : '#4a1a1a',
+                                                color: passed ? '#4ec94e' : '#ff4444',
+                                                fontSize: '13px',
+                                                fontWeight: 'bold'
+                                            }}>
+                                                {passed ? '✅' : '❌'} Case {i + 1}
+                                            </div>
+                                        ))}
                                     </div>
-                                ))
+                                </div>
                             ) : (
-                                <pre style={{ color: '#ff4444', margin: 0 }}>{result || 'No output yet.'}</pre>
+                                <p style={{ color: '#888' }}>No output yet.</p>
                             )
                         )}
                     </div>
