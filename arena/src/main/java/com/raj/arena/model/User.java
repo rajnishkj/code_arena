@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 
@@ -18,8 +19,17 @@ public class User {
     private Long id;
     private String name;
     private String username;
+
+    @Column(unique = true)
+    private String email;
+
     private int elo;
     private int total_game_time;
     private String encrypted_password;
+
+    @Column(nullable = false)
+    @ColumnDefault("true")
+    private boolean isGuest = true;
+
     private LocalDateTime created_at;
 }

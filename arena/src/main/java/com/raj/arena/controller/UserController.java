@@ -31,4 +31,10 @@ public class UserController {
     public ResponseEntity<List<User>> getLeaderboard() {
         return ResponseEntity.ok(userService.getLeaderboard());
     }
+
+    @PostMapping("/guest")
+    public ResponseEntity<User> createGuest() {
+        User guest = userService.createGuest();
+        return ResponseEntity.ok(guest);
+    }
 }
