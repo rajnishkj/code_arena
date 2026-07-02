@@ -37,4 +37,10 @@ public class UserController {
         User guest = userService.createGuest();
         return ResponseEntity.ok(guest);
     }
+
+    @GetMapping("/id/{id}")
+    public ResponseEntity<User> getUserById(@PathVariable Long id) {
+        User user = userService.getUserById(id);
+        return user != null ? ResponseEntity.ok(user) : ResponseEntity.notFound().build();
+    }
 }

@@ -47,6 +47,6 @@ public class UserService {
     }
 
     public List<User> getLeaderboard() {
-        return userRepository.findAll(Sort.by(Sort.Direction.DESC, "elo"));
+        return userRepository.findByIsGuestFalseOrderByEloDesc();
     }
 }

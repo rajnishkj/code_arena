@@ -30,10 +30,8 @@ public class MatchmakingController {
 
     @PostMapping("/match")
     public ResponseEntity<?> tryMatch(@RequestParam Long userId, @RequestParam Long problemId) {
-        Match match = matchmakingService.tryMatch(userId, problemId);
-        if (match == null) {
-            return ResponseEntity.ok("Waiting for opponent");
-        }
-        return ResponseEntity.ok(match);
+        matchmakingService.tryMatch(userId, problemId);
+        return ResponseEntity.ok("Searching");
     }
+
 }

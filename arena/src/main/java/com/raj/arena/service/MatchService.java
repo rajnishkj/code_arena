@@ -1,10 +1,14 @@
 package com.raj.arena.service;
 
 import com.raj.arena.model.Match;
+import com.raj.arena.model.MatchDetailsDTO;
 import com.raj.arena.model.User;
 import com.raj.arena.repository.MatchRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+
+import java.util.Optional;
 
 @Service
 public class MatchService {
@@ -15,6 +19,9 @@ public class MatchService {
     @Autowired
     private UserService userService;
 
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+
     public Match createMatch(Long p1, Long p2, Long problemId) {
         Match match = new Match();
         match.setP1(p1);
@@ -24,8 +31,11 @@ public class MatchService {
     }
 
     public Match completeMatch(Long matchId, Long winner, int p1Time, int p2Time) {
+        System.out.println("completeMatch called for matchId: " + matchId);
+
         Match match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("Match not found"));
+
 
         if (match.getWinner() != null) {
             return match; // already completed, skip
@@ -58,6 +68,24 @@ public class MatchService {
         userService.updateElo(match.getP1(), p1EloChange);
         userService.updateElo(match.getP2(), p2EloChange);
 
-        return matchRepository.save(match);
+        Match saved = matchRepository.save(match);
+
+        messagingTemplate.convertAndSend("/topic/match-result/" + match.getP1(), saved);
+        messagingTemplate.convertAndSend("/topic/match-result/" + match.getP2(), saved);
+
+        return saved;
+    }
+
+    public Optional<MatchDetailsDTO> getMatchDetails(Long matchId) {
+        return matchRepository.findById(matchId).map(match -> {
+            User p1 = userService.getUserById(match.getP1());
+            User p2 = userService.getUserById(match.getP2());
+            return new MatchDetailsDTO(
+                    match.getId(),
+                    match.getP1(), match.getP2(),
+                    p1.getUsername(), p2.getUsername(),
+                    match.getProblemId()
+            );
+        });
     }
 }
