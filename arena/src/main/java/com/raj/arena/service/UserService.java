@@ -65,9 +65,35 @@ public class UserService {
         for (Object[] row : rows) {
             Long userId = (Long) row[0];
             long count = (long) row[1];
-            userRepository.findById(userId)
-                    .ifPresent(user -> result.add(new DailyLeaderboardEntry(user.getUsername(), count)));
+            userRepository.findById(userId).ifPresent(user -> {
+                if (!user.isGuest()) {
+                    result.add(new DailyLeaderboardEntry(user.getUsername(), count));
+                }
+            });
         }
         return result;
+    }
+
+    public User upgradeGuest(Long guestId, String name, String username, String email, String password) {
+        User user = userRepository.findById(guestId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!user.isGuest()) {
+            throw new IllegalStateException("Account is already registered");
+        }
+        if (userRepository.existsByUsernameAndIsGuestFalse(username)) {
+            throw new IllegalArgumentException("Username '" + username + "' is already taken. Please choose another.");
+        }
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("An account with this email already exists.");
+        }
+
+        user.setName(name);
+        user.setUsername(username);
+        user.setEmail(email);
+        user.setEncrypted_password(password);
+        user.setGuest(false);
+
+        return userRepository.save(user);
     }
 }
