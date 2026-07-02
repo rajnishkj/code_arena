@@ -2,12 +2,15 @@ package com.raj.arena.service;
 
 import com.raj.arena.model.Match;
 import com.raj.arena.model.MatchDetailsDTO;
+import com.raj.arena.model.SolvedProblem;
 import com.raj.arena.model.User;
 import com.raj.arena.repository.MatchRepository;
+import com.raj.arena.repository.SolvedProblemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -15,6 +18,9 @@ public class MatchService {
 
     @Autowired
     private MatchRepository matchRepository;
+
+    @Autowired
+    private SolvedProblemRepository solvedProblemRepository;
 
     @Autowired
     private UserService userService;
@@ -35,7 +41,6 @@ public class MatchService {
 
         Match match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("Match not found"));
-
 
         if (match.getWinner() != null) {
             return match; // already completed, skip
@@ -70,6 +75,13 @@ public class MatchService {
 
         Match saved = matchRepository.save(match);
 
+        // Record a solve for both players (rewarding participation)
+        LocalDateTime now = LocalDateTime.now();
+        SolvedProblem sp1 = new SolvedProblem(null, match.getP1(), match.getProblemId(), now);
+        SolvedProblem sp2 = new SolvedProblem(null, match.getP2(), match.getProblemId(), now);
+        solvedProblemRepository.save(sp1);
+        solvedProblemRepository.save(sp2);
+
         messagingTemplate.convertAndSend("/topic/match-result/" + match.getP1(), saved);
         messagingTemplate.convertAndSend("/topic/match-result/" + match.getP2(), saved);
 
@@ -84,8 +96,7 @@ public class MatchService {
                     match.getId(),
                     match.getP1(), match.getP2(),
                     p1.getUsername(), p2.getUsername(),
-                    match.getProblemId()
-            );
+                    match.getProblemId());
         });
     }
 }
