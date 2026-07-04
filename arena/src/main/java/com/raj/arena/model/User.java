@@ -1,5 +1,6 @@
 package com.raj.arena.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -29,6 +30,7 @@ public class User {
 
     @Column(nullable = false)
     @ColumnDefault("true")
+    @JsonProperty("isGuest")
     private boolean isGuest = true;
 
     private LocalDateTime created_at;

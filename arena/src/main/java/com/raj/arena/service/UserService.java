@@ -96,4 +96,13 @@ public class UserService {
 
         return userRepository.save(user);
     }
+
+    public void deleteGuest(Long userId) {
+        userRepository.findById(userId).ifPresent(user -> {
+            if (!user.isGuest())
+                return; // never delete a registered account this way
+            solvedProblemRepository.deleteByUserId(userId);
+            userRepository.delete(user);
+        });
+    }
 }

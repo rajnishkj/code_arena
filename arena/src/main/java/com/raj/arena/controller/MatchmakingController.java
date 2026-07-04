@@ -1,6 +1,5 @@
 package com.raj.arena.controller;
 
-import com.raj.arena.model.Match;
 import com.raj.arena.service.MatchmakingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -17,21 +16,16 @@ public class MatchmakingController {
     private MatchmakingService matchmakingService;
 
     @PostMapping("/join")
-    public ResponseEntity<?> joinQueue(@RequestParam Long userId) {
-        matchmakingService.addToQueue(userId);
-        return ResponseEntity.ok("Added to queue");
+    public ResponseEntity<?> joinQueue(@RequestParam Long userId,
+            @RequestParam(defaultValue = "1") Long problemId) {
+        matchmakingService.joinAndMatch(userId, problemId);
+        return ResponseEntity.ok("Searching");
     }
 
     @PostMapping("/leave")
     public ResponseEntity<?> leaveQueue(@RequestParam Long userId) {
         matchmakingService.removeFromQueue(userId);
         return ResponseEntity.ok("Removed from queue");
-    }
-
-    @PostMapping("/match")
-    public ResponseEntity<?> tryMatch(@RequestParam Long userId, @RequestParam Long problemId) {
-        matchmakingService.tryMatch(userId, problemId);
-        return ResponseEntity.ok("Searching");
     }
 
 }

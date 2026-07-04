@@ -47,6 +47,14 @@ public class UserController {
         return ResponseEntity.ok(guest);
     }
 
+    @PostMapping("/guest/delete")
+    public ResponseEntity<Void> deleteGuest(@RequestBody Map<String, Long> body) {
+        Long userId = body.get("userId");
+        if (userId != null)
+            userService.deleteGuest(userId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/id/{id}")
     public ResponseEntity<User> getUserById(@PathVariable Long id) {
         User user = userService.getUserById(id);

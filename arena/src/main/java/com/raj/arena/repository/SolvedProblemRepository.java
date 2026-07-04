@@ -17,4 +17,6 @@ public interface SolvedProblemRepository extends JpaRepository<SolvedProblem, Lo
             "GROUP BY sp.userId " +
             "ORDER BY COUNT(sp) DESC")
     List<Object[]> findDailySolveCounts(@Param("startOfDay") LocalDateTime startOfDay);
+
+    void deleteByUserId(Long userId);
 }
