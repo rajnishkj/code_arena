@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { ArrowRight, X } from 'lucide-react';
 import Hls from 'hls.js';
 import { gsap } from 'gsap';
 import API from '../services/api';
@@ -33,48 +34,119 @@ const STYLES = `
   pointer-events: none;
 }
 
-.lobby-input {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 10px;
-  padding: 13px 16px;
-  color: #fff;
-  font-family: 'Inter', sans-serif;
-  font-size: 14px;
-  outline: none;
-  width: 100%;
-  box-sizing: border-box;
-  transition: border-color 0.2s, background 0.2s;
+.lobby-panel {
+  flex: 1;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transition: border-color 0.3s, box-shadow 0.3s;
 }
-.lobby-input:focus {
-  border-color: #5ed29c;
-  background: rgba(94,210,156,0.06);
-}
-.lobby-input::placeholder { color: rgba(255,255,255,0.25); }
 
-.lobby-btn {
-  width: 100%;
-  padding: 12px;
-  border-radius: 10px;
+.lobby-panel.searching {
+  border-color: rgba(94,210,156,0.3);
+  box-shadow: 0 0 24px rgba(94,210,156,0.08);
+}
+
+.lobby-panel.opponent-idle {
+  border-color: rgba(255,255,255,0.04);
+}
+
+.lobby-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #070b0a;
+  background: #5ed29c;
+}
+
+.lobby-avatar.opponent {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.3);
+  font-size: 26px;
+}
+
+.lobby-vs {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-size: 28px;
+  font-weight: 700;
+  color: rgba(94,210,156,0.5);
+  text-shadow: 0 0 20px rgba(94,210,156,0.2);
+  flex-shrink: 0;
+  width: 48px;
+  text-align: center;
+}
+
+.lobby-btn-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 36px;
+  border-radius: 12px;
   border: none;
   background: #5ed29c;
   color: #070b0a;
   font-family: 'Inter', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.10em;
   cursor: pointer;
-  transition: background 0.2s, transform 0.15s;
-  box-shadow: 0 0 18px rgba(94,210,156,0.3);
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 0 28px rgba(94,210,156,0.25);
 }
-.lobby-btn:hover:not(:disabled) { background: #79e8b4; transform: translateY(-1px); }
-.lobby-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.lobby-btn-main:hover:not(:disabled) { background: #79e8b4; transform: translateY(-2px); box-shadow: 0 0 40px rgba(94,210,156,0.4); }
+.lobby-btn-main:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.lobby-btn-cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: transparent;
+  color: rgba(255,255,255,0.4);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.lobby-btn-cancel:hover { border-color: rgba(255,107,107,0.4); color: #ff6b6b; }
+
+.lobby-info-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  color: rgba(255,255,255,0.2);
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 640px) {
+  .lobby-panels { flex-direction: column !important; }
+  .lobby-vs { transform: rotate(90deg); width: auto; }
+}
 `;
 
 function injectStyles() {
-    if (document.getElementById('lobby-gl-styles')) return;
+    if (document.getElementById('lobby-styles')) return;
     const el = document.createElement('style');
-    el.id = 'lobby-gl-styles';
+    el.id = 'lobby-styles';
     el.textContent = STYLES;
     document.head.appendChild(el);
 }
@@ -83,9 +155,14 @@ export default function Lobby() {
     const navigate = useNavigate();
     const videoRef = useRef(null);
     const cardRef = useRef(null);
+    const oppRef = useRef(null);
     const statusRef = useRef(null);
+    const intervalRef = useRef(null);
 
-    const [userId, setUserId] = useState('');
+    const userId = localStorage.getItem('userId');
+    const storedUsername = localStorage.getItem('username');
+
+    const [user, setUser] = useState(null);
     const [status, setStatus] = useState('');
     const [searching, setSearching] = useState(false);
 
@@ -108,6 +185,12 @@ export default function Lobby() {
         }
     }, []);
 
+    // Fetch user data
+    useEffect(() => {
+        if (!userId) return;
+        API.get(`/users/id/${userId}`).then(res => setUser(res.data)).catch(() => {});
+    }, [userId]);
+
     // Card entrance
     useEffect(() => {
         if (cardRef.current) {
@@ -116,7 +199,7 @@ export default function Lobby() {
                 { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }
             );
         }
-    }, []);
+    }, [userId]);
 
     // Character trail
     useEffect(() => {
@@ -156,6 +239,24 @@ export default function Lobby() {
         return () => window.removeEventListener('mousemove', onTrail);
     }, []);
 
+    // Opponent panel pulse when searching
+    useEffect(() => {
+        if (searching && oppRef.current) {
+            gsap.to(oppRef.current, {
+                borderColor: 'rgba(94,210,156,0.5)',
+                boxShadow: '0 0 32px rgba(94,210,156,0.15)',
+                duration: 1.2,
+                repeat: -1,
+                yoyo: true,
+                ease: 'sine.inOut',
+            });
+        } else if (oppRef.current) {
+            gsap.killTweensOf(oppRef.current);
+            oppRef.current.style.borderColor = 'rgba(255,255,255,0.04)';
+            oppRef.current.style.boxShadow = 'none';
+        }
+    }, [searching]);
+
     // Status pulse
     useEffect(() => {
         if (searching && statusRef.current) {
@@ -170,145 +271,194 @@ export default function Lobby() {
 
     const joinQueue = async () => {
         setSearching(true);
-        setStatus('Searching for opponent...');
-        await API.post('/matchmaking/join', null, { params: { userId } });
+        setStatus('Scanning for opponents...');
+        try {
+            await API.post('/matchmaking/join', null, { params: { userId } });
+        } catch {
+            setStatus('Failed to join queue');
+            setSearching(false);
+            return;
+        }
 
-        const interval = setInterval(async () => {
-            const res = await API.post('/matchmaking/match', null, {
-                params: { userId, problemId: 1 }
-            });
-
-            if (res.data && res.data.id) {
-                clearInterval(interval);
-                setSearching(false);
-                navigate('/match', {
-                    state: {
-                        matchId: res.data.id,
-                        userId: userId,
-                        problemId: res.data.problemId
-                    }
+        intervalRef.current = setInterval(async () => {
+            try {
+                const res = await API.post('/matchmaking/match', null, {
+                    params: { userId, problemId: 1 }
                 });
+                if (res.data && res.data.id) {
+                    clearInterval(intervalRef.current);
+                    setSearching(false);
+                    navigate('/match', {
+                        state: {
+                            matchId: res.data.id,
+                            userId,
+                            problemId: res.data.problemId
+                        }
+                    });
+                }
+            } catch {
+                // poll continues
             }
         }, 3000);
     };
 
+    const leaveQueue = async () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        try { await API.post('/matchmaking/leave', null, { params: { userId } }); } catch {}
+        setSearching(false);
+        setStatus('');
+    };
+
+    // Cleanup interval on unmount
+    useEffect(() => {
+        return () => {
+            if (intervalRef.current) clearInterval(intervalRef.current);
+        };
+    }, []);
+
+    // ── Not logged in ──
+    if (!userId) {
+        return (
+            <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden', background: '#070b0a' }}>
+                <video ref={videoRef} muted loop playsInline style={{
+                    position: 'absolute', inset: 0, width: '100%', height: '100%',
+                    objectFit: 'cover', opacity: 0.6, zIndex: 0,
+                }} />
+                <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(to right, #070b0a 0%, transparent 55%)' }} />
+                <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(to top, #070b0a 0%, transparent 50%)' }} />
+                <svg style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: '900px', height: '320px', zIndex: 2, pointerEvents: 'none', overflow: 'visible' }} aria-hidden="true">
+                    <defs><filter id="lobby-login-glow"><feGaussianBlur stdDeviation="25" result="blur" /></filter></defs>
+                    <ellipse cx="450" cy="60" rx="420" ry="80" fill="rgba(0,200,130,0.18)" filter="url(#lobby-login-glow)" />
+                </svg>
+                <NavBar />
+                <div style={{ position: 'relative', zIndex: 10, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+                    <div className="lobby-glass-card" style={{ width: '100%', maxWidth: 340, padding: '36px 32px', display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'center', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.5)' }}>[ JOIN THE ARENA ]</span>
+                        <p style={{ fontSize: 20, fontWeight: 700, color: '#fff', margin: 0, lineHeight: 1.25 }}>
+                            Enter the{' '}
+                            <em style={{ fontFamily: 'Instrument Serif, serif', fontStyle: 'italic', color: '#5ed29c' }}>Arena</em>
+                        </p>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0, lineHeight: 1.6 }}>
+                            Login or create an account to start battling.
+                        </p>
+                        <Link to="/login" style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 8,
+                            padding: '12px 28px', borderRadius: 10, border: 'none',
+                            background: '#5ed29c', color: '#070b0a',
+                            fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 800,
+                            letterSpacing: '0.10em', textDecoration: 'none',
+                            boxShadow: '0 0 24px rgba(94,210,156,0.3)',
+                            transition: 'background 0.2s, transform 0.15s',
+                        }}
+                            onMouseEnter={e => { e.target.style.background = '#79e8b4'; e.target.style.transform = 'translateY(-1px)'; }}
+                            onMouseLeave={e => { e.target.style.background = '#5ed29c'; e.target.style.transform = 'translateY(0)'; }}
+                        >
+                            Login
+                            <ArrowRight size={15} strokeWidth={2.5} />
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ── Logged in ──
+    const displayName = user?.username || storedUsername || 'Player';
+    const initial = displayName.charAt(0).toUpperCase();
+    const elo = user?.elo ?? '—';
+
     return (
         <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden', background: '#070b0a' }}>
 
-            {/* ── Video Background ── */}
             <video ref={videoRef} muted loop playsInline style={{
-                position: 'absolute', inset: 0,
-                width: '100%', height: '100%',
+                position: 'absolute', inset: 0, width: '100%', height: '100%',
                 objectFit: 'cover', opacity: 0.6, zIndex: 0,
             }} />
 
-            {/* ── Gradient Overlays ── */}
-            <div style={{
-                position: 'absolute', inset: 0, zIndex: 1,
-                background: 'linear-gradient(to right, #070b0a 0%, transparent 55%)'
-            }} />
-            <div style={{
-                position: 'absolute', inset: 0, zIndex: 1,
-                background: 'linear-gradient(to top, #070b0a 0%, transparent 50%)'
-            }} />
+            <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(to right, #070b0a 0%, transparent 55%)' }} />
+            <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(to top, #070b0a 0%, transparent 50%)' }} />
 
-            {/* ── Vertical Grid Lines ── */}
-            <div style={{
-                position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none',
-            }}>
+            <div style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }}>
                 {[25, 50, 75].map(pct => (
-                    <div key={pct} style={{
-                        position: 'absolute',
-                        left: `${pct}%`,
-                        top: 0,
-                        bottom: 0,
-                        width: '1px',
-                        background: 'rgba(255,255,255,0.07)',
-                    }} />
+                    <div key={pct} style={{ position: 'absolute', left: `${pct}%`, top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.07)' }} />
                 ))}
             </div>
 
-            {/* ── Central Glow ── */}
-            <svg style={{
-                position: 'absolute', top: 0, left: '50%',
-                transform: 'translateX(-50%)',
-                width: '900px', height: '320px',
-                zIndex: 2, pointerEvents: 'none', overflow: 'visible',
-            }} aria-hidden="true">
-                <defs>
-                    <filter id="lobby-glow-blur">
-                        <feGaussianBlur stdDeviation="25" result="blur" />
-                    </filter>
-                </defs>
-                <ellipse cx="450" cy="60" rx="420" ry="80"
-                    fill="rgba(0,200,130,0.18)" filter="url(#lobby-glow-blur)" />
+            <svg style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: '900px', height: '320px', zIndex: 2, pointerEvents: 'none', overflow: 'visible' }} aria-hidden="true">
+                <defs><filter id="lobby-glow"><feGaussianBlur stdDeviation="25" result="blur" /></filter></defs>
+                <ellipse cx="450" cy="60" rx="420" ry="80" fill="rgba(0,200,130,0.18)" filter="url(#lobby-glow)" />
             </svg>
 
             <NavBar />
 
-            {/* ── Centered Card ── */}
-            <div style={{
-                position: 'relative', zIndex: 10,
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '24px',
-            }}>
-                <div ref={cardRef} className="lobby-glass-card" style={{
-                    width: '100%',
-                    maxWidth: 360,
-                    padding: '36px 32px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 16,
-                }}>
-                    <span style={{
-                        fontSize: 13, fontWeight: 700,
-                        letterSpacing: '0.12em',
-                        color: 'rgba(255,255,255,0.5)',
-                    }}>[ FIND MATCH ]</span>
+            <div style={{ position: 'relative', zIndex: 10, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+                <div ref={cardRef} className="lobby-glass-card" style={{ width: '100%', maxWidth: 640, padding: '36px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-                    <p style={{
-                        fontSize: 20, fontWeight: 700,
-                        color: '#fff', margin: 0, lineHeight: 1.25,
-                    }}>
-                        Enter the{' '}
-                        <em style={{
-                            fontFamily: 'Instrument Serif, serif',
-                            fontStyle: 'italic', color: '#5ed29c',
-                        }}>Arena</em>
-                    </p>
+                    <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.5)' }}>[ READY ROOM ]</span>
 
-                    <p style={{
-                        fontSize: 11, color: 'rgba(255,255,255,0.4)',
-                        margin: 0, lineHeight: 1.6,
-                    }}>
-                        Enter your ID to join the queue
-                    </p>
+                    {/* ── VS Panels ── */}
+                    <div className="lobby-panels" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
 
-                    <input
-                        className="lobby-input"
-                        placeholder="Enter your User ID"
-                        value={userId}
-                        onChange={e => setUserId(e.target.value)}
-                    />
+                        {/* Player */}
+                        <div className="lobby-panel" style={{ borderColor: searching ? 'rgba(94,210,156,0.2)' : 'rgba(255,255,255,0.06)' }}>
+                            <div className="lobby-avatar">{initial}</div>
+                            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 700, color: '#fff' }}>{displayName}</span>
+                            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600, color: '#5ed29c' }}>{elo} ELO</span>
+                            {user && (
+                                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.04em' }}>
+                                    ⏱ {user.total_game_time > 0 ? `${Math.floor(user.total_game_time / 60)}h ${user.total_game_time % 60}m` : '0h 0m'}
+                                </span>
+                            )}
+                        </div>
 
-                    <button
-                        className="lobby-btn"
-                        onClick={joinQueue}
-                        disabled={searching}
-                    >
-                        {searching ? 'Searching...' : 'Find Match'}
-                    </button>
+                        {/* VS */}
+                        <div className="lobby-vs">VS</div>
 
+                        {/* Opponent */}
+                        <div ref={oppRef} className={`lobby-panel ${searching ? 'searching' : 'opponent-idle'}`}>
+                            <div className="lobby-avatar opponent">{searching ? '⋯' : '?'}</div>
+                            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 700, color: searching ? 'rgba(94,210,156,0.7)' : 'rgba(255,255,255,0.2)' }}>
+                                {searching ? 'Searching' : 'Opponent'}
+                            </span>
+                            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: searching ? 'rgba(94,210,156,0.4)' : 'rgba(255,255,255,0.12)', textAlign: 'center' }}>
+                                {searching ? 'Scanning the arena...' : 'Waiting for challenger'}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* ── Actions ── */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                        <button className="lobby-btn-main" onClick={joinQueue} disabled={searching}>
+                            {searching ? 'Searching...' : 'Find Match'}
+                            {!searching && <ArrowRight size={16} strokeWidth={2.5} />}
+                        </button>
+                        {searching && (
+                            <button className="lobby-btn-cancel" onClick={leaveQueue}>
+                                <X size={14} strokeWidth={2} />
+                                Cancel
+                            </button>
+                        )}
+                    </div>
+
+                    {/* ── Status ── */}
                     {status && (
                         <p ref={statusRef} style={{
-                            fontFamily: 'Inter, sans-serif',
-                            fontSize: 12, color: '#5ed29c',
+                            fontFamily: 'Inter, sans-serif', fontSize: 12, color: '#5ed29c',
                             textAlign: 'center', margin: 0,
                         }}>{status}</p>
                     )}
+
+                    {/* ── Info ── */}
+                    <div className="lobby-info-row">
+                        {user ? (
+                            <span>Elo range: {Math.max(0, user.elo - 100)}–{user.elo + 100}</span>
+                        ) : (
+                            <span>Elo range: —</span>
+                        )}
+                        <span>•</span>
+                        <span>Avg wait: ~30s</span>
+                    </div>
+
                 </div>
             </div>
         </div>
