@@ -25,6 +25,7 @@ public class UserService {
     private SolvedProblemRepository solvedProblemRepository;
 
     public User createUser(User user) {
+        user.setGuest(false);
         return userRepository.save(user);
     }
 
@@ -72,37 +73,5 @@ public class UserService {
             });
         }
         return result;
-    }
-
-    public User upgradeGuest(Long guestId, String name, String username, String email, String password) {
-        User user = userRepository.findById(guestId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!user.isGuest()) {
-            throw new IllegalStateException("Account is already registered");
-        }
-        if (userRepository.existsByUsernameAndIsGuestFalse(username)) {
-            throw new IllegalArgumentException("Username '" + username + "' is already taken. Please choose another.");
-        }
-        if (userRepository.findByEmail(email).isPresent()) {
-            throw new IllegalArgumentException("An account with this email already exists.");
-        }
-
-        user.setName(name);
-        user.setUsername(username);
-        user.setEmail(email);
-        user.setEncrypted_password(password);
-        user.setGuest(false);
-
-        return userRepository.save(user);
-    }
-
-    public void deleteGuest(Long userId) {
-        userRepository.findById(userId).ifPresent(user -> {
-            if (!user.isGuest())
-                return; // never delete a registered account this way
-            solvedProblemRepository.deleteByUserId(userId);
-            userRepository.delete(user);
-        });
     }
 }

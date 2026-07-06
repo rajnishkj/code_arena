@@ -2,6 +2,7 @@ package com.raj.arena.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -26,6 +27,7 @@ public class User {
 
     private int elo;
     private int total_game_time;
+    @JsonProperty("encrypted_password")
     private String encrypted_password;
 
     @Column(nullable = false)

@@ -183,6 +183,7 @@ export default function Home() {
     const NAV_LINKS = [
         { label: 'LEADERBOARD', to: '/leaderboard' },
         { label: 'ABOUT', to: '/' },
+        { label: 'LOGIN', to: '/login' },
         { label: 'PLAY', to: '/lobby' },
     ];
 

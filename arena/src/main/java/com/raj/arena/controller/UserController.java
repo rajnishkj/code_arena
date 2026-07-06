@@ -1,11 +1,9 @@
 package com.raj.arena.controller;
 
 import com.raj.arena.dto.DailyLeaderboardEntry;
-import com.raj.arena.dto.UpgradeRequest;
 import com.raj.arena.model.User;
 import com.raj.arena.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -61,20 +59,20 @@ public class UserController {
         return user != null ? ResponseEntity.ok(user) : ResponseEntity.notFound().build();
     }
 
-    @PostMapping("/upgrade")
-    public ResponseEntity<?> upgradeGuest(@RequestBody UpgradeRequest req) {
-        try {
-            User upgraded = userService.upgradeGuest(
-                    req.getGuestId(), req.getName(), req.getUsername(), req.getEmail(), req.getPassword());
-            return ResponseEntity.ok(upgraded);
-        } catch (IllegalArgumentException e) {
-            // username or email conflict
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(Map.of("error", e.getMessage()));
-        } catch (IllegalStateException e) {
-            // already registered
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", e.getMessage()));
-        }
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
+        String username = body.get("username");
+        String password = body.get("password");
+        return userService.getUserByUsername(username)
+                .map(user -> {
+                    if (password != null && password.equals(user.getEncrypted_password())) {
+                        return ResponseEntity.ok((Object) user);
+                    }
+                    return ResponseEntity.status(401)
+                            .body((Object) Map.of("error", "Incorrect password"));
+                })
+                .orElse(ResponseEntity.status(404)
+                        .body(Map.of("error", "User not found")));
     }
+
 }
