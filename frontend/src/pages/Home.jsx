@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, Menu, X, User } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import Hls from 'hls.js';
 import { gsap } from 'gsap';
-import AccountDropdown from '../components/AccountDropdown';
+import NavBar from '../components/NavBar';
+import API from '../services/api';
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const HLS_STREAM_URL =
@@ -12,41 +13,6 @@ const HLS_STREAM_URL =
 // ─── STYLES (injected once) ───────────────────────────────────────────────────
 const FONT_STYLE = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@700&family=Instrument+Serif:ital@0;1&display=swap');
-
-.ca-nav-link {
-  font-family: 'Inter', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  color: rgba(255,255,255,0.75);
-  text-decoration: none;
-  transition: color 0.2s;
-}
-.ca-nav-link:hover { color: #5ed29c; }
-
-.ca-mobile-menu {
-  position: fixed;
-  inset: 0;
-  background: rgba(7,11,10,0.97);
-  backdrop-filter: blur(20px);
-  z-index: 200;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 40px;
-}
-
-.ca-mobile-link {
-  font-family: 'Inter', sans-serif;
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: rgba(255,255,255,0.85);
-  text-decoration: none;
-  transition: color 0.2s;
-}
-.ca-mobile-link:hover { color: #5ed29c; }
 
 .ca-cta-btn {
   display: inline-flex;
@@ -111,9 +77,15 @@ export default function Home() {
     const videoRef = useRef(null);
     const spotlightRef = useRef(null);
     const navigate = useNavigate();
-    const [menuOpen, setMenuOpen] = useState(false);
-    const [accountOpen, setAccountOpen] = useState(false);
-    const accountClose = useCallback(() => setAccountOpen(false), []);
+    const [visitCount, setVisitCount] = useState(null);
+    const visitCounted = useRef(false);
+
+    // Visit counter
+    useEffect(() => {
+        if (visitCounted.current) return;
+        visitCounted.current = true;
+        API.post('/visits').then(res => setVisitCount(res.data.count)).catch(() => {});
+    }, []);
 
     // Character trail
     useEffect(() => {
@@ -182,12 +154,6 @@ export default function Home() {
             video.play().catch(() => { });
         }
     }, []);
-
-    const NAV_LINKS = [
-        { label: 'LEADERBOARD', to: '/leaderboard' },
-        { label: 'ABOUT', to: '/' },
-        { label: 'PLAY', to: '/lobby' },
-    ];
 
     return (
         <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden', fontFamily: 'Inter, sans-serif' }}>
@@ -269,99 +235,7 @@ export default function Home() {
                 />
             </svg>
 
-            {/* ── Navigation ── */}
-            <header style={{
-                position: 'absolute', top: 0, left: 0, right: 0,
-                zIndex: 100,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '28px 48px',
-            }}>
-                {/* Wordmark */}
-                <Link to="/" style={{
-                    fontFamily: 'Inter, sans-serif',
-                    fontSize: '17px',
-                    fontWeight: 800,
-                    letterSpacing: '0.18em',
-                    color: '#ffffff',
-                    textDecoration: 'none',
-                }}>
-                    CODE ARENA
-                </Link>
-
-                {/* Desktop links */}
-                <nav style={{ display: 'flex', gap: 36, alignItems: 'center' }}>
-                    {NAV_LINKS.map(l => (
-                        <Link key={l.label} to={l.to} className="ca-nav-link">{l.label}</Link>
-                    ))}
-                    <div style={{ position: 'relative' }}>
-                        <button
-                            className="ca-nav-link"
-                            onClick={() => {
-                                if (localStorage.getItem('userId')) {
-                                    setAccountOpen(a => !a);
-                                } else {
-                                    navigate('/login');
-                                }
-                            }}
-                            style={{
-                                background: 'none', border: 'none', cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', gap: 6, padding: 0,
-                            }}
-                            aria-label="Account"
-                        >
-                            <User size={15} strokeWidth={2} />
-                            ACCOUNT
-                        </button>
-                        <AccountDropdown open={accountOpen} onClose={accountClose} />
-                    </div>
-                </nav>
-
-                {/* Hamburger */}
-                <button
-                    onClick={() => setMenuOpen(true)}
-                    style={{
-                        display: 'none',
-                        background: 'none', border: 'none',
-                        color: '#fff', cursor: 'pointer', padding: 4,
-                    }}
-                    className="ca-hamburger"
-                    aria-label="Open menu"
-                >
-                    <Menu size={24} />
-                </button>
-            </header>
-
-            {/* ── Mobile Menu Overlay ── */}
-            {menuOpen && (
-                <div className="ca-mobile-menu">
-                    <button
-                        onClick={() => setMenuOpen(false)}
-                        style={{
-                            position: 'absolute', top: 28, right: 32,
-                            background: 'none', border: 'none',
-                            color: '#fff', cursor: 'pointer',
-                        }}
-                        aria-label="Close menu"
-                    >
-                        <X size={28} />
-                    </button>
-                    {NAV_LINKS.map(l => (
-                        <Link
-                            key={l.label}
-                            to={l.to}
-                            className="ca-mobile-link"
-                            onClick={() => setMenuOpen(false)}
-                        >
-                            {l.label}
-                        </Link>
-                    ))}
-                    <Link to="/login" className="ca-mobile-link" onClick={() => setMenuOpen(false)}>
-                        LOGIN
-                    </Link>
-                </div>
-            )}
+            <NavBar />
 
             {/* ── Hero Content ── */}
             <main style={{
@@ -487,6 +361,22 @@ export default function Home() {
                     </button>
                 </div>
             </main>
+
+            {/* ── Visit Counter ── */}
+            {visitCount !== null && (
+                <div style={{
+                    position: 'fixed', bottom: 24, right: 24,
+                    zIndex: 150,
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: 11,
+                    color: 'rgba(255,255,255,0.15)',
+                    letterSpacing: '0.04em',
+                    pointerEvents: 'none',
+                    userSelect: 'none',
+                }}>
+                    Visits: {visitCount}
+                </div>
+            )}
         </div>
     );
 }

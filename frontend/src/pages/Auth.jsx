@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Hls from 'hls.js';
 import { gsap } from 'gsap';
 import API from '../services/api';
+import NavBar from '../components/NavBar';
 
 const HLS_STREAM_URL =
     'https://stream.mux.com/tLkHO1qZoaaQOUeVWo8hEBeGQfySP02EPS02BmnNFyXys.m3u8';
@@ -268,19 +269,7 @@ export default function Auth() {
                     fill="rgba(0,200,130,0.18)" filter="url(#auth-glow-blur)" />
             </svg>
 
-            {/* ── Nav ── */}
-            <header style={{
-                position: 'absolute', top: 0, left: 0, right: 0,
-                zIndex: 100, display: 'flex',
-                alignItems: 'center', justifyContent: 'space-between',
-                padding: '28px 48px',
-            }}>
-                <Link to="/" style={{
-                    fontFamily: 'Inter, sans-serif', fontSize: 17,
-                    fontWeight: 800, letterSpacing: '0.18em',
-                    color: '#fff', textDecoration: 'none',
-                }}>CODE ARENA</Link>
-            </header>
+            <NavBar />
 
             {/* ── Centered Card ── */}
             <div style={{
@@ -372,12 +361,6 @@ export default function Auth() {
                         </button>
                     </div>
 
-                    <p style={{ textAlign: 'center', margin: '4px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>
-                        <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}
-                            onMouseEnter={e => e.target.style.color = '#5ed29c'}
-                            onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.2)'}
-                        >← Back to home</Link>
-                    </p>
                 </div>
             </div>
         </div>

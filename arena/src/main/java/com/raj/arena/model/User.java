@@ -29,7 +29,7 @@ public class User {
     @JsonProperty("encrypted_password")
     private String encrypted_password;
 
-    private boolean isGuest = true;
+    private boolean isGuest = false;
 
     private LocalDateTime created_at;
 }

@@ -25,7 +25,6 @@ public class UserService {
     private SolvedProblemRepository solvedProblemRepository;
 
     public User createUser(User user) {
-        user.setGuest(false);
         return userRepository.save(user);
     }
 
