@@ -5,6 +5,7 @@ import Hls from 'hls.js';
 import { gsap } from 'gsap';
 import API from '../services/api';
 import NavBar from '../components/NavBar';
+import createWebSocketClient from '../services/websocket';
 
 const HLS_STREAM_URL =
     'https://stream.mux.com/tLkHO1qZoaaQOUeVWo8hEBeGQfySP02EPS02BmnNFyXys.m3u8';
@@ -157,7 +158,6 @@ export default function Lobby() {
     const cardRef = useRef(null);
     const oppRef = useRef(null);
     const statusRef = useRef(null);
-    const intervalRef = useRef(null);
 
     const userId = localStorage.getItem('userId');
     const storedUsername = localStorage.getItem('username');
@@ -200,6 +200,24 @@ export default function Lobby() {
             );
         }
     }, [userId]);
+
+    // WebSocket — listen for match found
+    useEffect(() => {
+        if (!userId) return;
+        const client = createWebSocketClient((match) => {
+            if (match && match.id) {
+                setSearching(false);
+                navigate('/match', {
+                    state: {
+                        matchId: match.id,
+                        userId,
+                        problemId: match.problemId
+                    }
+                });
+            }
+        }, userId);
+        return () => client.deactivate();
+    }, [userId, navigate]);
 
     // Character trail
     useEffect(() => {
@@ -274,47 +292,16 @@ export default function Lobby() {
         setStatus('Scanning for opponents...');
         try {
             await API.post('/matchmaking/join', null, { params: { userId } });
-        } catch {
-            setStatus('Failed to join queue');
-            setSearching(false);
-            return;
+        } catch (err) {
+            console.error('Join queue error:', err);
         }
-
-        intervalRef.current = setInterval(async () => {
-            try {
-                const res = await API.post('/matchmaking/match', null, {
-                    params: { userId, problemId: 1 }
-                });
-                if (res.data && res.data.id) {
-                    clearInterval(intervalRef.current);
-                    setSearching(false);
-                    navigate('/match', {
-                        state: {
-                            matchId: res.data.id,
-                            userId,
-                            problemId: res.data.problemId
-                        }
-                    });
-                }
-            } catch {
-                // poll continues
-            }
-        }, 3000);
     };
 
     const leaveQueue = async () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
         try { await API.post('/matchmaking/leave', null, { params: { userId } }); } catch {}
         setSearching(false);
         setStatus('');
     };
-
-    // Cleanup interval on unmount
-    useEffect(() => {
-        return () => {
-            if (intervalRef.current) clearInterval(intervalRef.current);
-        };
-    }, []);
 
     // ── Not logged in ──
     if (!userId) {
