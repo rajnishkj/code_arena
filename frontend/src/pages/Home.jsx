@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, Menu, X } from 'lucide-react';
+import { ArrowRight, Menu, X, User } from 'lucide-react';
 import Hls from 'hls.js';
 import { gsap } from 'gsap';
+import AccountDropdown from '../components/AccountDropdown';
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const HLS_STREAM_URL =
@@ -111,6 +112,8 @@ export default function Home() {
     const spotlightRef = useRef(null);
     const navigate = useNavigate();
     const [menuOpen, setMenuOpen] = useState(false);
+    const [accountOpen, setAccountOpen] = useState(false);
+    const accountClose = useCallback(() => setAccountOpen(false), []);
 
     // Character trail
     useEffect(() => {
@@ -183,7 +186,6 @@ export default function Home() {
     const NAV_LINKS = [
         { label: 'LEADERBOARD', to: '/leaderboard' },
         { label: 'ABOUT', to: '/' },
-        { label: 'LOGIN', to: '/login' },
         { label: 'PLAY', to: '/lobby' },
     ];
 
@@ -293,6 +295,27 @@ export default function Home() {
                     {NAV_LINKS.map(l => (
                         <Link key={l.label} to={l.to} className="ca-nav-link">{l.label}</Link>
                     ))}
+                    <div style={{ position: 'relative' }}>
+                        <button
+                            className="ca-nav-link"
+                            onClick={() => {
+                                if (localStorage.getItem('userId')) {
+                                    setAccountOpen(a => !a);
+                                } else {
+                                    navigate('/login');
+                                }
+                            }}
+                            style={{
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: 6, padding: 0,
+                            }}
+                            aria-label="Account"
+                        >
+                            <User size={15} strokeWidth={2} />
+                            ACCOUNT
+                        </button>
+                        <AccountDropdown open={accountOpen} onClose={accountClose} />
+                    </div>
                 </nav>
 
                 {/* Hamburger */}
@@ -334,6 +357,9 @@ export default function Home() {
                             {l.label}
                         </Link>
                     ))}
+                    <Link to="/login" className="ca-mobile-link" onClick={() => setMenuOpen(false)}>
+                        LOGIN
+                    </Link>
                 </div>
             )}
 

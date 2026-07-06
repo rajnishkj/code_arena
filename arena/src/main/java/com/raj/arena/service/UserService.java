@@ -45,6 +45,14 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
+    public User updateUser(Long id, String name, String email) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (name != null) user.setName(name);
+        if (email != null) user.setEmail(email);
+        return userRepository.save(user);
+    }
+
     public User createGuest() {
         User guest = new User();
         guest.setUsername("Guest" + System.currentTimeMillis());

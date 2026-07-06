@@ -2,7 +2,6 @@ package com.raj.arena.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -30,9 +29,6 @@ public class User {
     @JsonProperty("encrypted_password")
     private String encrypted_password;
 
-    @Column(nullable = false)
-    @ColumnDefault("true")
-    @JsonProperty("isGuest")
     private boolean isGuest = true;
 
     private LocalDateTime created_at;
