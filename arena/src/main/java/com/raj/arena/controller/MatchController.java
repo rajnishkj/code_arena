@@ -30,10 +30,8 @@ public class MatchController {
     @PostMapping("/complete")
     public ResponseEntity<Match> completeMatch(
             @RequestParam Long matchId,
-            @RequestParam Long winner,
-            @RequestParam int p1Time,
-            @RequestParam int p2Time) {
-        return ResponseEntity.ok(matchService.completeMatch(matchId, winner, p1Time, p2Time));
+            @RequestParam Long winner) {
+        return ResponseEntity.ok(matchService.completeMatch(matchId, winner));
     }
 
     @PostMapping("/forfeit")

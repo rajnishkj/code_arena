@@ -25,7 +25,6 @@ public class User {
     private String email;
 
     private int elo;
-    private int total_game_time;
     @JsonProperty("encrypted_password")
     private String encrypted_password;
 

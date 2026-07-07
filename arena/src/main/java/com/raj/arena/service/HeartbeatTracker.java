@@ -19,6 +19,11 @@ public class HeartbeatTracker {
         return ts != null && (System.currentTimeMillis() - ts) < STALE_MS;
     }
 
+    public long getLastHeartbeatMillis(String matchId, Long userId) {
+        Long ts = lastAlive.get(matchId + ":" + userId);
+        return ts != null ? ts : 0L;
+    }
+
     public void clear(String matchId) {
         lastAlive.keySet().removeIf(k -> k.startsWith(matchId + ":"));
     }

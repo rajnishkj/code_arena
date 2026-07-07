@@ -123,12 +123,12 @@ const Match = () => {
     const [problem, setProblem] = useState(null);
     const [matchDetails, setMatchDetails] = useState(null);
     const [code, setCode] = useState('');
-    const [timer, setTimer] = useState(300);
     const [result, setResult] = useState(null);
     const [activeTab, setActiveTab] = useState('testcases');
     const [matchOver, setMatchOver] = useState(false);
     const [matchWon, setMatchWon] = useState(null);
     const [opponentAlive, setOpponentAlive] = useState(true);
+    const [eloChange, setEloChange] = useState(null);
 
     const forfeitSent = useRef(false);
     const lostOpponent = useRef(false);
@@ -169,6 +169,9 @@ const Match = () => {
         ? (String(userId) === String(matchDetails.p1Id) ? matchDetails.p2Id : matchDetails.p1Id)
         : null;
 
+    const extractEloChange = (match, uid) =>
+        String(match.p1) === String(uid) ? match.p1EloChange : match.p2EloChange;
+
     useEffect(() => {
         API.get(`/problems/${problemId}`).then(res => setProblem(res.data));
         API.get(`/matches/${matchId}`).then(res => setMatchDetails(res.data)).catch(() => {});
@@ -176,8 +179,8 @@ const Match = () => {
         const client = createWebSocketClient({
             onMatchUpdate: () => {},
             onMatchResult: (msg) => {
-                const won = String(msg.winner) === String(userId);
-                setMatchWon(won);
+                setEloChange(extractEloChange(msg, userId));
+                setMatchWon(String(msg.winner) === String(userId));
                 setMatchOver(true);
             },
             userId,
@@ -189,24 +192,13 @@ const Match = () => {
     }, [problemId, matchId, userId]);
 
     useEffect(() => {
-        if (matchOver) return;
-        const id = setInterval(() => {
-            setTimer(t => {
-                if (t <= 0) { clearInterval(id); return 0; }
-                return t - 1;
-            });
-        }, 1000);
-        return () => clearInterval(id);
-    }, [matchOver]);
-
-    useEffect(() => {
         if (!matchId || !userId || matchOver) return;
         const onLeave = () => {
             if (forfeitSent.current) return;
             forfeitSent.current = true;
-            navigator.sendBeacon(
-                `http://localhost:8080/api/matches/forfeit?matchId=${matchId}&userId=${userId}`
-            );
+                    navigator.sendBeacon(
+                        `http://localhost:8080/api/matches/forfeit?matchId=${matchId}&userId=${userId}`
+                    );
         };
         window.addEventListener('beforeunload', onLeave);
         return () => window.removeEventListener('beforeunload', onLeave);
@@ -273,7 +265,7 @@ const Match = () => {
                     if (lostOpponent.current) {
                         if (forfeitSent.current) return;
                         forfeitSent.current = true;
-                        await API.post('/matches/forfeit', null, { params: { matchId, userId } });
+                        await API.post('/matches/complete', null, { params: { matchId, winner: userId } });
                         endMatch(true);
                     } else {
                         lostOpponent.current = true;
@@ -393,14 +385,13 @@ const Match = () => {
             setResult({ passed, total, results, isRun: false });
             setActiveTab('output');
 
-            await API.post('/matches/complete', null, {
+            const res = await API.post('/matches/complete', null, {
                 params: {
                     matchId,
-                    winner: userId,
-                    p1Time: 300 - timer,
-                    p2Time: 300 - timer
+                    winner: userId
                 }
             });
+            setEloChange(extractEloChange(res.data, userId));
 
             endMatch(true);
         } catch (err) {
@@ -412,8 +403,6 @@ const Match = () => {
             setActiveTab('output');
         }
     };
-
-    const formatTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
     const sampleTestCases = problem?.testCases?.filter(tc => tc.sample) || [];
 
@@ -461,6 +450,11 @@ const Match = () => {
                         {result && !result.isRun && (
                             <p style={{ margin: '16px 0 0', fontFamily: "'Inter', sans-serif", fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>
                                 {result.passed} / {result.total} Test Cases Passed
+                            </p>
+                        )}
+                        {eloChange !== null && (
+                            <p style={{ marginTop: 8, fontFamily: "'Inter', sans-serif", fontSize: 22, fontWeight: 800, color: eloChange >= 0 ? '#5ed29c' : '#ff6b6b' }}>
+                                {eloChange >= 0 ? `+${eloChange}` : eloChange} Elo
                             </p>
                         )}
                         <div style={{ marginTop: 28 }}>
@@ -547,7 +541,6 @@ const Match = () => {
                         {/* ── TOP BAR ── */}
                         <div className="mc-glass" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', flexShrink: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                                <span style={{ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: 20, fontWeight: 700, color: '#ffa500' }}>{formatTime(timer)}</span>
                                 <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>
                                     vs <span style={{ color: '#5ed29c', fontWeight: 700 }}>{opponentUsername}</span>
                                 </span>

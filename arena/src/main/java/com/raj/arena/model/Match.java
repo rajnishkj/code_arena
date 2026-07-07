@@ -19,8 +19,6 @@ public class Match {
     private Long p1;
     private Long p2;
     private Long problemId;
-    private int p1Time;
-    private int p2Time;
     private Long winner;
     private int p1EloChange;
     private int p2EloChange;

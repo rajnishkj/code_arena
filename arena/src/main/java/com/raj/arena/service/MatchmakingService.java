@@ -46,15 +46,6 @@ public class MatchmakingService {
      * Stale (deleted user) entries are skipped.
      */
     public void joinAndMatch(Long userId, Long problemId) {
-        // Cancel any stale incomplete match from previous sessions
-        Optional<Match> activeMatch = matchRepository.findActiveMatchByUser(userId);
-        if (activeMatch.isPresent()) {
-            Match stale = activeMatch.get();
-            System.out.println("Stale match " + stale.getId() + " found for user " + userId + " — auto-cancelling");
-            Long opponent = stale.getP1().equals(userId) ? stale.getP2() : stale.getP1();
-            matchService.completeMatch(stale.getId(), opponent, 300, 300);
-        }
-
         long now = System.currentTimeMillis();
 
         // Purge any entries older than TTL_MS
@@ -85,6 +76,11 @@ public class MatchmakingService {
             if (!userRepository.existsById(opponentId)) {
                 // Deleted guest — discard and try next
                 System.out.println("Skipping stale queue entry: " + opponent);
+                continue;
+            }
+
+            if (matchRepository.findActiveMatchByUser(opponentId).isPresent()) {
+                System.out.println("Opponent " + opponent + " has active match — skipping");
                 continue;
             }
 

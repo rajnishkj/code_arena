@@ -415,11 +415,7 @@ export default function Lobby() {
                             <div className="lobby-avatar">{initial}</div>
                             <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 700, color: '#fff' }}>{displayName}</span>
                             <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600, color: '#5ed29c' }}>{elo} ELO</span>
-                            {user && (
-                                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.04em' }}>
-                                    ⏱ {user.total_game_time > 0 ? `${Math.floor(user.total_game_time / 60)}h ${user.total_game_time % 60}m` : '0h 0m'}
-                                </span>
-                            )}
+
                         </div>
 
                         {/* VS */}

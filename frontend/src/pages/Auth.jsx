@@ -217,7 +217,6 @@ export default function Auth() {
                         username,
                         encrypted_password: password,
                         elo: 1200,
-                        total_game_time: 0,
                     });
                     localStorage.setItem('username', res.data.username);
                     localStorage.setItem('userId', res.data.id);
