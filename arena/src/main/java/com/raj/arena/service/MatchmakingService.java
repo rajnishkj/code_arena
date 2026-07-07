@@ -1,6 +1,8 @@
 package com.raj.arena.service;
 
 import com.raj.arena.model.Match;
+import com.raj.arena.model.Problem;
+import com.raj.arena.model.User;
 import com.raj.arena.repository.MatchRepository;
 import com.raj.arena.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,7 +10,9 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 
 @Service
@@ -29,8 +33,12 @@ public class MatchmakingService {
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
+    @Autowired
+    private ProblemService problemService;
+
     private static final String QUEUE = "matchmaking_queue";
     private static final long TTL_MS = 60_000; // 60 seconds
+    private final Random random = new Random();
 
     public void addToQueue(Long userId) {
         redisTemplate.opsForZSet().add(QUEUE, userId.toString(), System.currentTimeMillis());
@@ -45,7 +53,7 @@ public class MatchmakingService {
      * Entries older than 60s are pruned first.
      * Stale (deleted user) entries are skipped.
      */
-    public void joinAndMatch(Long userId, Long problemId) {
+    public void joinAndMatch(Long userId) {
         long now = System.currentTimeMillis();
 
         // Purge any entries older than TTL_MS
@@ -84,7 +92,11 @@ public class MatchmakingService {
                 continue;
             }
 
-            // Valid opponent found — create match and notify both
+            // Valid opponent found — create match with a problem in Elo range
+            User user = userRepository.findById(userId).orElse(null);
+            int elo = user != null ? user.getElo() : 800;
+            List<Problem> eligible = problemService.getProblemsByEloRange(elo);
+            Long problemId = eligible.isEmpty() ? 1L : eligible.get(random.nextInt(eligible.size())).getId();
             Match match = matchService.createMatch(opponentId, userId, problemId);
             System.out.println("Match created: " + opponentId + " vs " + userId);
             messagingTemplate.convertAndSend("/topic/match/" + opponent, match);

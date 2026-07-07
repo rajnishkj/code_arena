@@ -19,9 +19,8 @@ public class MatchmakingController {
     private MatchmakingService matchmakingService;
 
     @PostMapping("/join")
-    public ResponseEntity<?> joinQueue(@RequestParam Long userId,
-            @RequestParam(defaultValue = "1") Long problemId) {
-        matchmakingService.joinAndMatch(userId, problemId);
+    public ResponseEntity<?> joinQueue(@RequestParam Long userId) {
+        matchmakingService.joinAndMatch(userId);
         return ResponseEntity.ok("Searching");
     }
 
