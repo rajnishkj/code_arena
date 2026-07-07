@@ -1,13 +1,124 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
+import Hls from 'hls.js';
+import { gsap } from 'gsap';
 import createWebSocketClient from '../services/websocket';
 import API from '../services/api';
+import NavBar from '../components/NavBar';
+
+const HLS_STREAM_URL =
+    'https://stream.mux.com/tLkHO1qZoaaQOUeVWo8hEBeGQfySP02EPS02BmnNFyXys.m3u8';
+
+const STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
+
+.mc-glass {
+  position: relative;
+  background: rgba(255,255,255,0.01);
+  background-blend-mode: luminosity;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.10);
+  border-radius: 16px;
+}
+.mc-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1.4px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.04) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.mc-btn-green {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #5ed29c;
+  color: #070b0a;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 0 16px rgba(94,210,156,0.25);
+}
+.mc-btn-green:hover:not(:disabled) { background: #79e8b4; transform: translateY(-1px); box-shadow: 0 0 28px rgba(94,210,156,0.4); }
+.mc-btn-green:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+
+.mc-btn-blue {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: #569cd6;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 10px 16px;
+  border-radius: 9999px;
+  border: 1px solid rgba(86,156,214,0.4);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.mc-btn-blue:hover { background: rgba(86,156,214,0.1); border-color: #569cd6; }
+
+.mc-btn-red {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: #ff6b6b;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 10px 16px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255,107,107,0.3);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.mc-btn-red:hover { background: rgba(255,107,107,0.1); border-color: #ff6b6b; }
+
+.mc-tab {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 8px 16px;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+`;
+
+function injectStyles() {
+    if (document.getElementById('mc-styles')) return;
+    const el = document.createElement('style');
+    el.id = 'mc-styles';
+    el.textContent = STYLES;
+    document.head.appendChild(el);
+}
 
 const Match = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { matchId, userId, problemId } = location.state || {};
+
+    const videoRef = useRef(null);
+    const cardRef = useRef(null);
 
     const [problem, setProblem] = useState(null);
     const [matchDetails, setMatchDetails] = useState(null);
@@ -21,6 +132,34 @@ const Match = () => {
 
     const forfeitSent = useRef(false);
     const lostOpponent = useRef(false);
+
+    useEffect(() => { injectStyles(); }, []);
+
+    // HLS video
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+        if (Hls.isSupported()) {
+            const hls = new Hls({ enableWorker: false });
+            hls.loadSource(HLS_STREAM_URL);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+            return () => hls.destroy();
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = HLS_STREAM_URL;
+            video.play().catch(() => {});
+        }
+    }, []);
+
+    // Card entrance
+    useEffect(() => {
+        if (cardRef.current) {
+            gsap.fromTo(cardRef.current,
+                { opacity: 0, y: 30 },
+                { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }
+            );
+        }
+    }, []);
 
     const opponentUsername = matchDetails
         ? (String(userId) === String(matchDetails.p1Id) ? matchDetails.p2Username : matchDetails.p1Username)
@@ -73,7 +212,45 @@ const Match = () => {
         return () => window.removeEventListener('beforeunload', onLeave);
     }, [matchId, userId, matchOver]);
 
-    // Heartbeat — ping server every 5s
+    // Character trail
+    useEffect(() => {
+        const CHARS = '{}[]()<>/;:=*&#@!?01+-~|^%$';
+        let last = 0;
+        const onTrail = (e) => {
+            const now = Date.now();
+            if (now - last < 40) return;
+            last = now;
+            const el = document.createElement('span');
+            el.textContent = CHARS[Math.floor(Math.random() * CHARS.length)];
+            const ox = (Math.random() - 0.5) * 24;
+            Object.assign(el.style, {
+                position: 'fixed',
+                left: `${e.clientX + ox}px`,
+                top: `${e.clientY}px`,
+                color: '#5ed29c',
+                fontFamily: 'monospace',
+                fontSize: `${Math.floor(Math.random() * 8) + 11}px`,
+                fontWeight: '700',
+                pointerEvents: 'none',
+                userSelect: 'none',
+                zIndex: 9999,
+                opacity: 1,
+                transform: 'translateX(-50%)',
+            });
+            document.body.appendChild(el);
+            gsap.to(el, {
+                y: 55 + Math.random() * 30,
+                opacity: 0,
+                duration: 0.7 + Math.random() * 0.4,
+                ease: 'power1.out',
+                onComplete: () => el.remove(),
+            });
+        };
+        window.addEventListener('mousemove', onTrail);
+        return () => window.removeEventListener('mousemove', onTrail);
+    }, []);
+
+    // Heartbeat — ping server every 2s
     useEffect(() => {
         if (!matchId || !userId || matchOver) return;
         const id = setInterval(() => {
@@ -82,7 +259,7 @@ const Match = () => {
         return () => clearInterval(id);
     }, [matchId, userId, matchOver]);
 
-    // Opponent alive check — poll every 5s, auto-forfeit after 10s dark
+    // Opponent alive check — poll every 2s, auto-forfeit after ~4s dark
     useEffect(() => {
         if (!matchId || !userId || !opponentId || matchOver) return;
         const id = setInterval(async () => {
@@ -241,248 +418,250 @@ const Match = () => {
     const sampleTestCases = problem?.testCases?.filter(tc => tc.sample) || [];
 
     return (
-        <div style={{ position: 'relative', display: 'flex', height: '100vh', fontFamily: 'monospace', background: '#1e1e1e', color: '#d4d4d4' }}>
+        <div style={{ position: 'relative', height: '100vh', overflow: 'hidden', background: '#070b0a' }}>
 
+            <video ref={videoRef} muted loop playsInline style={{
+                position: 'absolute', inset: 0, width: '100%', height: '100%',
+                objectFit: 'cover', opacity: 0.6, zIndex: 0,
+            }} />
+
+            <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(to right, #070b0a 0%, transparent 55%)' }} />
+            <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(to top, #070b0a 0%, transparent 50%)' }} />
+
+            <div style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }}>
+                {[25, 50, 75].map(pct => (
+                    <div key={pct} style={{ position: 'absolute', left: `${pct}%`, top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.07)' }} />
+                ))}
+            </div>
+
+            <svg style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: '900px', height: '320px', zIndex: 2, pointerEvents: 'none', overflow: 'visible' }} aria-hidden="true">
+                <defs><filter id="match-glow"><feGaussianBlur stdDeviation="25" result="blur" /></filter></defs>
+                <ellipse cx="450" cy="60" rx="420" ry="80" fill="rgba(0,200,130,0.18)" filter="url(#match-glow)" />
+            </svg>
+
+            <NavBar />
+
+            {/* ── MATCH OVER OVERLAY ── */}
             {matchOver && (
                 <div style={{
                     position: 'absolute', inset: 0, zIndex: 9998,
-                    background: 'rgba(0,0,0,0.7)',
+                    background: 'rgba(7,11,10,0.85)',
+                    backdropFilter: 'blur(8px)',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                    gap: 20,
                 }}>
-                    <div style={{
-                        background: '#252526', border: '1px solid #333', borderRadius: 16,
-                        padding: '40px 48px', textAlign: 'center',
-                    }}>
+                    <div className="mc-glass" style={{ padding: '48px 56px', textAlign: 'center' }}>
                         <span style={{
-                            fontSize: 48, fontWeight: 800,
-                            color: matchWon ? '#4ec94e' : '#ff4444',
+                            fontFamily: "'Instrument Serif', serif",
+                            fontSize: 56, fontWeight: 700,
+                            fontStyle: 'italic',
+                            color: matchWon ? '#5ed29c' : '#ff6b6b',
                         }}>
-                            {matchWon ? 'YOU WIN' : 'YOU LOSE'}
+                            {matchWon ? 'You Win' : 'You Lose'}
                         </span>
-                        {result && (
-                            <p style={{ margin: '16px 0 0', fontSize: 14, color: '#888' }}>
+                        {result && !result.isRun && (
+                            <p style={{ margin: '16px 0 0', fontFamily: "'Inter', sans-serif", fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>
                                 {result.passed} / {result.total} Test Cases Passed
                             </p>
                         )}
-                        <button
-                            onClick={() => navigate('/lobby')}
-                            style={{
-                                marginTop: 24, padding: '12px 32px', borderRadius: 10, border: 'none',
-                                background: '#5ed29c', color: '#070b0a',
-                                fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 700,
-                                cursor: 'pointer',
-                            }}
-                        >
-                            Back to Lobby
-                        </button>
+                        <div style={{ marginTop: 28 }}>
+                            <button
+                                onClick={() => navigate('/lobby')}
+                                className="mc-btn-green"
+                                style={{ fontSize: 13, padding: '12px 32px' }}
+                            >
+                                Back to Lobby
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
 
+            {/* ── DEBUG BAR ── */}
             {matchDetails && (
                 <div style={{
                     position: 'fixed', bottom: 8, left: 8, zIndex: 9999,
-                    fontSize: 10, color: 'rgba(255,255,255,0.15)', fontFamily: 'monospace',
+                    fontSize: 10, color: 'rgba(255,255,255,0.12)', fontFamily: 'monospace',
                 }}>
                     Match #{matchDetails.matchId} | P1: {matchDetails.p1Username} ({matchDetails.p1Id}) | P2: {matchDetails.p2Username} ({matchDetails.p2Id})
                 </div>
             )}
 
-            {/* LEFT PANEL */}
-            <div style={{ width: `${leftWidth}%`, overflowY: 'auto', padding: '24px', borderRight: '1px solid #333' }}>
+            {/* ── MAIN LAYOUT ── */}
+            <div ref={cardRef} style={{ position: 'relative', zIndex: 10, height: '100vh', paddingTop: 76 }}>
+                <div style={{ display: 'flex', height: 'calc(100vh - 76px)', padding: '12px' }}>
 
-                {problem ? (
-                    <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h2 style={{ color: '#fff', margin: 0 }}>{problem.title}</h2>
-                            <span style={{
-                                padding: '2px 10px',
-                                borderRadius: '12px',
-                                fontSize: '12px',
-                                background: problem.difficulty === 'EASY' ? '#1a472a' : problem.difficulty === 'MEDIUM' ? '#7c4a00' : '#4a1a1a',
-                                color: problem.difficulty === 'EASY' ? '#4ec94e' : problem.difficulty === 'MEDIUM' ? '#ffa500' : '#ff4444'
-                            }}>
-                                {problem.difficulty}
-                            </span>
+                    {/* ── LEFT PANEL (Problem) ── */}
+                    <div className="mc-glass" style={{ width: `${leftWidth}%`, overflowY: 'auto', padding: '20px', marginRight: '10px' }}>
+                        {problem ? (
+                            <>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                                    <h2 style={{ fontFamily: "'Inter', sans-serif", fontSize: 18, fontWeight: 700, color: '#fff', margin: 0 }}>{problem.title}</h2>
+                                    <span style={{
+                                        padding: '2px 10px',
+                                        borderRadius: 9999,
+                                        fontSize: 11,
+                                        fontFamily: "'Inter', sans-serif",
+                                        fontWeight: 700,
+                                        letterSpacing: '0.06em',
+                                        background: problem.difficulty === 'EASY' ? 'rgba(78,201,78,0.15)' : problem.difficulty === 'MEDIUM' ? 'rgba(255,165,0,0.15)' : 'rgba(255,68,68,0.15)',
+                                        color: problem.difficulty === 'EASY' ? '#4ec94e' : problem.difficulty === 'MEDIUM' ? '#ffa500' : '#ff4444'
+                                    }}>
+                                        {problem.difficulty}
+                                    </span>
+                                </div>
+
+                                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, lineHeight: '1.7', color: 'rgba(255,255,255,0.7)', margin: '0 0 16px' }}>{problem.description}</p>
+
+                                <h4 style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, fontWeight: 700, color: '#569cd6', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px' }}>Input Format</h4>
+                                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '0 0 16px' }}>{problem.inputFormat}</p>
+
+                                <h4 style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, fontWeight: 700, color: '#569cd6', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px' }}>Output Format</h4>
+                                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '0 0 16px' }}>{problem.outputFormat}</p>
+
+                                <h4 style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, fontWeight: 700, color: '#569cd6', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px' }}>Constraints</h4>
+                                <pre style={{ fontFamily: 'monospace', fontSize: 12, background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: 8, color: 'rgba(255,255,255,0.7)', margin: '0 0 16px' }}>{problem.constraints}</pre>
+
+                                <h4 style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, fontWeight: 700, color: '#569cd6', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 12px' }}>Examples</h4>
+                                {sampleTestCases.map((tc, i) => (
+                                    <div key={i} style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: 8, marginBottom: 10 }}>
+                                        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px' }}>Example {i + 1}</p>
+                                        <p style={{ margin: '0 0 4px', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.7)' }}><span style={{ color: '#569cd6' }}>Input:</span> {tc.input}</p>
+                                        <p style={{ margin: 0, fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.7)' }}><span style={{ color: '#569cd6' }}>Output:</span> {tc.expectedOutput}</p>
+                                    </div>
+                                ))}
+                            </>
+                        ) : (
+                            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>Loading problem...</p>
+                        )}
+                    </div>
+
+                    {/* ── DIVIDER ── */}
+                    <div
+                        onMouseDown={handleMouseDown}
+                        style={{ width: '4px', cursor: 'col-resize', background: isDragging ? 'rgba(94,210,156,0.3)' : 'rgba(255,255,255,0.06)', borderRadius: 2, flexShrink: 0, transition: 'background 0.2s' }}
+                    />
+
+                    {/* ── RIGHT PANEL ── */}
+                    <div id="right-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginLeft: '10px', overflow: 'hidden' }}>
+
+                        {/* ── TOP BAR ── */}
+                        <div className="mc-glass" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', flexShrink: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                <span style={{ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: 20, fontWeight: 700, color: '#ffa500' }}>{formatTime(timer)}</span>
+                                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>
+                                    vs <span style={{ color: '#5ed29c', fontWeight: 700 }}>{opponentUsername}</span>
+                                </span>
+                                {!matchOver && !opponentAlive && (
+                                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, fontWeight: 600, color: '#ff6b6b' }}>
+                                        ⚠ opponent disconnected
+                                    </span>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {!matchOver && (
+                                    <button onClick={handleRun} className="mc-btn-blue">Run</button>
+                                )}
+                                {!matchOver && (
+                                    <button onClick={() => { if (window.confirm('Forfeit match?')) doForfeit(); }} className="mc-btn-red">Forfeit</button>
+                                )}
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={matchOver}
+                                    className="mc-btn-green"
+                                >
+                                    {matchOver ? 'Finished' : 'Submit'}
+                                </button>
+                            </div>
                         </div>
 
-                        <p style={{ marginTop: '16px', lineHeight: '1.6' }}>{problem.description}</p>
-
-                        <h4 style={{ color: '#9cdcfe' }}>Input Format</h4>
-                        <p>{problem.inputFormat}</p>
-
-                        <h4 style={{ color: '#9cdcfe' }}>Output Format</h4>
-                        <p>{problem.outputFormat}</p>
-
-                        <h4 style={{ color: '#9cdcfe' }}>Constraints</h4>
-                        <pre style={{ background: '#2d2d2d', padding: '10px', borderRadius: '6px' }}>{problem.constraints}</pre>
-
-                        <h4 style={{ color: '#9cdcfe' }}>Examples</h4>
-                        {sampleTestCases.map((tc, i) => (
-                            <div key={i} style={{ background: '#2d2d2d', padding: '12px', borderRadius: '6px', marginBottom: '12px' }}>
-                                <p style={{ margin: '0 0 6px', color: '#888' }}>Example {i + 1}</p>
-                                <p style={{ margin: '0 0 4px' }}><span style={{ color: '#9cdcfe' }}>Input:</span> <code>{tc.input}</code></p>
-                                <p style={{ margin: 0 }}><span style={{ color: '#9cdcfe' }}>Output:</span> <code>{tc.expectedOutput}</code></p>
-                            </div>
-                        ))}
-                    </>
-                ) : (
-                    <p>Loading problem...</p>
-                )}
-            </div>
-
-            {/* DIVIDER */}
-            <div
-                onMouseDown={handleMouseDown}
-                style={{
-                    width: '5px',
-                    cursor: 'col-resize',
-                    background: isDragging ? '#555' : '#333',
-                    flexShrink: 0
-                }}
-            />
-
-            {/* RIGHT PANEL */}
-            <div id="right-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-                {/* TOP BAR */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid #333', background: '#252526', flexShrink: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <span style={{ color: '#ffa500', fontWeight: 'bold', fontSize: '16px' }}>⏱ {formatTime(timer)}</span>
-                        <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '13px' }}>
-                            vs <span style={{ color: '#5ed29c', fontWeight: 600 }}>{opponentUsername}</span>
-                        </span>
-                        {!matchOver && !opponentAlive && (
-                            <span style={{ color: '#ff4444', fontSize: '11px', fontWeight: 600 }}>
-                                ⚠ opponent disconnected
-                            </span>
-                        )}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {!matchOver && (
-                            <button
-                                onClick={handleRun}
-                                style={{
-                                    background: '#2d2d2d', border: '1px solid #569cd6',
-                                    color: '#569cd6', padding: '8px 14px', borderRadius: '6px',
-                                    fontWeight: 'bold', fontSize: '12px', cursor: 'pointer',
+                        {/* ── EDITOR ── */}
+                        <div style={{ flex: 1, overflow: 'hidden', marginTop: 10, borderRadius: 12 }}>
+                            <Editor
+                                height="100%"
+                                defaultLanguage="python"
+                                value={code}
+                                onChange={(value) => setCode(value)}
+                                theme="vs-dark"
+                                options={{
+                                    fontSize: 14,
+                                    minimap: { enabled: false },
+                                    scrollBeyondLastLine: false,
+                                    readOnly: matchOver,
                                 }}
-                            >
-                                Run
-                            </button>
-                        )}
-                        {!matchOver && (
-                            <button
-                                onClick={() => { if (window.confirm('Forfeit match?')) doForfeit(); }}
-                                style={{
-                                    background: 'transparent', border: '1px solid #ff4444',
-                                    color: '#ff4444', padding: '8px 14px', borderRadius: '6px',
-                                    fontWeight: 'bold', fontSize: '12px', cursor: 'pointer',
-                                }}
-                            >
-                                Forfeit
-                            </button>
-                        )}
-                        <button
-                            onClick={handleSubmit}
-                            disabled={matchOver}
+                            />
+                        </div>
+
+                        {/* ── VERTICAL DIVIDER ── */}
+                        <div
+                            onMouseDown={() => setIsDraggingVertical(true)}
                             style={{
-                                background: matchOver ? '#555' : '#4ec94e',
-                                color: matchOver ? '#888' : '#000',
-                                border: 'none', padding: '8px 20px', borderRadius: '6px',
-                                fontWeight: 'bold', cursor: matchOver ? 'not-allowed' : 'pointer'
+                                height: '4px', cursor: 'row-resize', marginTop: 10,
+                                background: isDraggingVertical ? 'rgba(94,210,156,0.3)' : 'rgba(255,255,255,0.06)',
+                                borderRadius: 2, flexShrink: 0, transition: 'background 0.2s',
                             }}
-                        >
-                            {matchOver ? 'Finished' : 'Submit'}
-                        </button>
-                    </div>
-                </div>
+                        />
 
-                {/* EDITOR */}
-                <div style={{ height: `${editorHeight}%`, overflow: 'hidden' }}>
-                    <Editor
-                        height="100%"
-                        defaultLanguage="python"
-                        value={code}
-                        onChange={(value) => setCode(value)}
-                        theme="vs-dark"
-                        options={{
-                            fontSize: 14,
-                            minimap: { enabled: false },
-                            scrollBeyondLastLine: false,
-                            readOnly: matchOver,
-                        }}
-                    />
-                </div>
+                        {/* ── BOTTOM PANEL (Test Cases / Output) ── */}
+                        <div className="mc-glass" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: 10, overflow: 'hidden', minHeight: 0 }}>
+                            <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+                                <button
+                                    onClick={() => setActiveTab('testcases')}
+                                    className="mc-tab"
+                                    style={{ color: activeTab === 'testcases' ? '#fff' : 'rgba(255,255,255,0.3)', background: activeTab === 'testcases' ? 'rgba(255,255,255,0.03)' : 'transparent' }}
+                                >
+                                    Test Cases
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('output')}
+                                    className="mc-tab"
+                                    style={{ color: activeTab === 'output' ? '#fff' : 'rgba(255,255,255,0.3)', background: activeTab === 'output' ? 'rgba(255,255,255,0.03)' : 'transparent' }}
+                                >
+                                    Output
+                                </button>
+                            </div>
 
-                {/* VERTICAL DIVIDER */}
-                <div
-                    onMouseDown={() => setIsDraggingVertical(true)}
-                    style={{
-                        height: '5px',
-                        cursor: 'row-resize',
-                        background: isDraggingVertical ? '#555' : '#333',
-                        flexShrink: 0
-                    }}
-                />
+                            <div style={{ padding: '12px', overflowY: 'auto', flex: 1, fontFamily: "'Inter', sans-serif", fontSize: 13 }}>
+                                {activeTab === 'testcases' && (
+                                    sampleTestCases.map((tc, i) => (
+                                        <div key={i} style={{ marginBottom: 10 }}>
+                                            <p style={{ margin: '0 0 4px', fontFamily: "'Inter', sans-serif", fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Case {i + 1}</p>
+                                            <p style={{ margin: '0 0 2px', fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}><span style={{ color: '#569cd6' }}>Input:</span> <code>{tc.input}</code></p>
+                                            <p style={{ margin: 0, fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}><span style={{ color: '#569cd6' }}>Expected:</span> <code>{tc.expectedOutput}</code></p>
+                                        </div>
+                                    ))
+                                )}
 
-                {/* BOTTOM PANEL */}
-                <div style={{ flex: 1, borderTop: '1px solid #333', background: '#1e1e1e', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', borderBottom: '1px solid #333', flexShrink: 0 }}>
-                        <button
-                            onClick={() => setActiveTab('testcases')}
-                            style={{ padding: '8px 16px', background: activeTab === 'testcases' ? '#2d2d2d' : 'transparent', color: activeTab === 'testcases' ? '#fff' : '#888', border: 'none', cursor: 'pointer' }}
-                        >
-                            Test Cases
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('output')}
-                            style={{ padding: '8px 16px', background: activeTab === 'output' ? '#2d2d2d' : 'transparent', color: activeTab === 'output' ? '#fff' : '#888', border: 'none', cursor: 'pointer' }}
-                        >
-                            Output
-                        </button>
-                    </div>
-
-                    <div style={{ padding: '12px', overflowY: 'auto', flex: 1 }}>
-                        {activeTab === 'testcases' && (
-                            sampleTestCases.map((tc, i) => (
-                                <div key={i} style={{ marginBottom: '10px' }}>
-                                    <p style={{ margin: '0 0 4px', color: '#888' }}>Case {i + 1}</p>
-                                    <p style={{ margin: '0 0 2px' }}><span style={{ color: '#9cdcfe' }}>Input:</span> <code>{tc.input}</code></p>
-                                    <p style={{ margin: 0 }}><span style={{ color: '#9cdcfe' }}>Expected:</span> <code>{tc.expectedOutput}</code></p>
-                                </div>
-                            ))
-                        )}
-
-                        {activeTab === 'output' && (
-                            result?.error ? (
-                                <pre style={{ color: '#ff4444', margin: 0 }}>{result.error}</pre>
-                            ) : result ? (
-                                <div>
-                                    <p style={{ display: 'flex', alignItems: 'center', gap: 8, color: result.passed === result.total ? '#4ec94e' : '#ffa500', fontWeight: 'bold', margin: '0 0 12px' }}>
-                                        {result.isRun && <span style={{ fontSize: 10, color: '#569cd6', background: '#1e3a5f', padding: '2px 8px', borderRadius: 4 }}>SAMPLE</span>}
-                                        {result.passed} / {result.total} Test Cases Passed
-                                    </p>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                        {result.results.map((passed, i) => (
-                                            <div key={i} style={{
-                                                padding: '6px 12px',
-                                                borderRadius: '6px',
-                                                background: passed ? '#1a472a' : '#4a1a1a',
-                                                color: passed ? '#4ec94e' : '#ff4444',
-                                                fontSize: '13px',
-                                                fontWeight: 'bold'
-                                            }}>
-                                                {passed ? '✅' : '❌'} {result.isRun ? 'Sample' : 'Case'} {i + 1}
+                                {activeTab === 'output' && (
+                                    result?.error ? (
+                                        <pre style={{ color: '#ff6b6b', margin: 0, fontFamily: 'monospace', fontSize: 12 }}>{result.error}</pre>
+                                    ) : result ? (
+                                        <div>
+                                            <p style={{ display: 'flex', alignItems: 'center', gap: 8, color: result.passed === result.total ? '#5ed29c' : '#ffa500', fontWeight: 700, margin: '0 0 12px', fontSize: 13 }}>
+                                                {result.isRun && <span style={{ fontSize: 10, color: '#569cd6', background: 'rgba(86,156,214,0.15)', padding: '2px 8px', borderRadius: 4, letterSpacing: '0.06em' }}>SAMPLE</span>}
+                                                {result.passed} / {result.total} Test Cases Passed
+                                            </p>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                                {result.results.map((passed, i) => (
+                                                    <div key={i} style={{
+                                                        padding: '6px 12px',
+                                                        borderRadius: 9999,
+                                                        background: passed ? 'rgba(78,201,78,0.12)' : 'rgba(255,68,68,0.12)',
+                                                        color: passed ? '#4ec94e' : '#ff4444',
+                                                        fontSize: 12,
+                                                        fontWeight: 700,
+                                                        fontFamily: "'Inter', sans-serif",
+                                                    }}>
+                                                        {passed ? '✅' : '❌'} {result.isRun ? 'Sample' : 'Case'} {i + 1}
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : (
-                                <p style={{ color: '#888' }}>No output yet.</p>
-                            )
-                        )}
+                                        </div>
+                                    ) : (
+                                        <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>No output yet.</p>
+                                    )
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
