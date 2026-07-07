@@ -39,12 +39,6 @@ public class UserController {
         return ResponseEntity.ok(userService.getDailyLeaderboard());
     }
 
-    @PostMapping("/guest")
-    public ResponseEntity<User> createGuest() {
-        User guest = userService.createGuest();
-        return ResponseEntity.ok(guest);
-    }
-
     @GetMapping("/id/{id}")
     public ResponseEntity<User> getUserById(@PathVariable Long id) {
         User user = userService.getUserById(id);

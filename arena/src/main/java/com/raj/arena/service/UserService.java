@@ -52,16 +52,6 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    public User createGuest() {
-        User guest = new User();
-        guest.setUsername("Guest" + System.currentTimeMillis());
-        guest.setName("Guest");
-        guest.setElo(800);
-        guest.setGuest(true);
-        guest.setCreated_at(LocalDateTime.now());
-        return userRepository.save(guest);
-    }
-
     public List<User> getLeaderboard() {
         return userRepository.findByIsGuestFalseOrderByEloDesc();
     }

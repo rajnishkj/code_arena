@@ -216,7 +216,7 @@ export default function Auth() {
                     const res = await API.post('/users/register', {
                         username,
                         encrypted_password: password,
-                        elo: 1200,
+                        elo: 800,
                     });
                     localStorage.setItem('username', res.data.username);
                     localStorage.setItem('userId', res.data.id);
