@@ -18,8 +18,6 @@ const Match = () => {
     const [matchOver, setMatchOver] = useState(false);
     const [matchWon, setMatchWon] = useState(null);
     const [opponentAlive, setOpponentAlive] = useState(true);
-    const [disconnectWarn, setDisconnectWarn] = useState(false);
-    const [isRun, setIsRun] = useState(false);
 
     const forfeitSent = useRef(false);
     const lostOpponent = useRef(false);
@@ -96,7 +94,6 @@ const Match = () => {
                 setOpponentAlive(alive);
                 if (!alive) {
                     if (lostOpponent.current) {
-                        setDisconnectWarn(true);
                         if (forfeitSent.current) return;
                         forfeitSent.current = true;
                         await API.post('/matches/forfeit', null, { params: { matchId, userId } });
@@ -106,7 +103,6 @@ const Match = () => {
                     }
                 } else {
                     lostOpponent.current = false;
-                    setDisconnectWarn(false);
                 }
             } catch {}
         }, 2000);
@@ -143,11 +139,9 @@ const Match = () => {
 
             const passed = results.filter(Boolean).length;
             setResult({ passed, total: results.length, results, isRun: true });
-            setIsRun(true);
             setActiveTab('output');
         } catch (err) {
             setResult({ error: err.message, isRun: true });
-            setIsRun(true);
             setActiveTab('output');
         }
     };
@@ -220,7 +214,6 @@ const Match = () => {
             const passed = results.filter(Boolean).length;
             const total = results.length;
             setResult({ passed, total, results, isRun: false });
-            setIsRun(false);
             setActiveTab('output');
 
             await API.post('/matches/complete', null, {

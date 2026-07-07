@@ -19,10 +19,6 @@ public class HeartbeatTracker {
         return ts != null && (System.currentTimeMillis() - ts) < STALE_MS;
     }
 
-    public boolean isOpponentAlive(String matchId, Long userId, Long opponentId) {
-        return isAlive(matchId, opponentId);
-    }
-
     public void clear(String matchId) {
         lastAlive.keySet().removeIf(k -> k.startsWith(matchId + ":"));
     }

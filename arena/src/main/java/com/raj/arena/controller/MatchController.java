@@ -56,8 +56,8 @@ public class MatchController {
             @RequestParam Long matchId,
             @RequestParam Long userId,
             @RequestParam Long opponentId) {
-        boolean alive = heartbeatTracker.isOpponentAlive(
-                String.valueOf(matchId), userId, opponentId);
+        boolean alive = heartbeatTracker.isAlive(
+                String.valueOf(matchId), opponentId);
         return ResponseEntity.ok(Map.of("opponentAlive", alive));
     }
 
