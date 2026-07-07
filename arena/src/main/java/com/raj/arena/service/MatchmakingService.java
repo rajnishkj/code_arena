@@ -1,12 +1,15 @@
 package com.raj.arena.service;
 
 import com.raj.arena.model.Match;
+import com.raj.arena.repository.MatchRepository;
 import com.raj.arena.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+
+import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class MatchmakingService {
@@ -19,6 +22,9 @@ public class MatchmakingService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private MatchRepository matchRepository;
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -46,17 +52,18 @@ public class MatchmakingService {
         redisTemplate.opsForZSet().removeRangeByScore(QUEUE, 0, now - TTL_MS);
 
         while (true) {
-            // Pop the oldest waiting entry
-            ZSetOperations.TypedTuple<String> entry = redisTemplate.opsForZSet().popMin(QUEUE);
+            // Peek at the oldest waiting entry (range instead of popMin, Redis 3.x compat)
+            Set<String> entries = redisTemplate.opsForZSet().range(QUEUE, 0, 0);
 
-            if (entry == null || entry.getValue() == null) {
+            if (entries == null || entries.isEmpty()) {
                 // Queue empty — add self and wait
                 redisTemplate.opsForZSet().add(QUEUE, userId.toString(), now);
                 System.out.println("No opponent found, " + userId + " added to queue");
                 return;
             }
 
-            String opponent = entry.getValue();
+            String opponent = entries.iterator().next();
+            redisTemplate.opsForZSet().remove(QUEUE, opponent);
 
             if (opponent.equals(userId.toString())) {
                 // Popped ourselves (shouldn't usually happen) — re-add and wait
@@ -81,4 +88,7 @@ public class MatchmakingService {
         }
     }
 
+    public Optional<Match> findActiveMatch(Long userId) {
+        return matchRepository.findActiveMatchByUser(userId);
+    }
 }
