@@ -11,6 +11,6 @@ import java.util.Optional;
 @Repository
 public interface MatchRepository extends JpaRepository<Match, Long> {
 
-    @Query("SELECT m FROM Match m WHERE (m.p1 = :userId OR m.p2 = :userId) AND m.winner IS NULL ORDER BY m.id DESC")
+    @Query(value = "SELECT * FROM matches WHERE (p1 = :userId OR p2 = :userId) AND winner IS NULL ORDER BY id DESC LIMIT 1", nativeQuery = true)
     Optional<Match> findActiveMatchByUser(@Param("userId") Long userId);
 }

@@ -13,7 +13,7 @@ import java.util.Map;
 @Service
 public class JudgeService {
 
-    private static final String PISTON_URL = "http://localhost:2000/api/v2/execute";;
+    private static final String PISTON_URL = "http://localhost:2000/api/v2/execute";
 
     public String executeCode(String sourceCode, String language, String version, String stdin) {
         RestTemplate restTemplate = new RestTemplate();
@@ -36,7 +36,16 @@ public class JudgeService {
 
         if (response == null) return "No response";
 
+        if (response.containsKey("error")) {
+            return "Piston error: " + response.get("error");
+        }
+        if (response.containsKey("message")) {
+            return "Piston message: " + response.get("message");
+        }
+
         Map<?, ?> run = (Map<?, ?>) response.get("run");
+        if (run == null) return "No run result in Piston response";
+
         String output = (String) run.get("output");
         return output != null ? output : "No output";
     }

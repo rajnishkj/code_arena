@@ -158,6 +158,7 @@ export default function Lobby() {
     const cardRef = useRef(null);
     const oppRef = useRef(null);
     const statusRef = useRef(null);
+    const pollRef = useRef(null);
 
     const userId = localStorage.getItem('userId');
     const storedUsername = localStorage.getItem('username');
@@ -206,6 +207,7 @@ export default function Lobby() {
         if (!userId) return;
         const client = createWebSocketClient((match) => {
             if (match && match.id) {
+                if (pollRef.current) clearInterval(pollRef.current);
                 setSearching(false);
                 navigate('/match', {
                     state: {
@@ -215,7 +217,7 @@ export default function Lobby() {
                     }
                 });
             }
-        }, userId);
+        }, userId, (err) => console.warn('WS fallback to polling:', err));
         return () => client.deactivate();
     }, [userId, navigate]);
 
@@ -295,9 +297,27 @@ export default function Lobby() {
         } catch (err) {
             console.error('Join queue error:', err);
         }
+
+        pollRef.current = setInterval(async () => {
+            try {
+                const res = await API.get('/matchmaking/status', { params: { userId } });
+                if (res.data && res.data.id) {
+                    clearInterval(pollRef.current);
+                    setSearching(false);
+                    navigate('/match', {
+                        state: {
+                            matchId: res.data.id,
+                            userId,
+                            problemId: res.data.problemId
+                        }
+                    });
+                }
+            } catch {}
+        }, 3000);
     };
 
     const leaveQueue = async () => {
+        if (pollRef.current) clearInterval(pollRef.current);
         try { await API.post('/matchmaking/leave', null, { params: { userId } }); } catch {}
         setSearching(false);
         setStatus('');

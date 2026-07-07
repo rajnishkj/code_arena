@@ -9,13 +9,19 @@ const Match = () => {
     const { matchId, userId, problemId } = location.state || {};
 
     const [problem, setProblem] = useState(null);
+    const [matchDetails, setMatchDetails] = useState(null);
     const [code, setCode] = useState('');
     const [timer, setTimer] = useState(300);
     const [result, setResult] = useState(null);
     const [activeTab, setActiveTab] = useState('testcases');
 
+    const opponentUsername = matchDetails
+        ? (String(userId) === String(matchDetails.p1Id) ? matchDetails.p2Username : matchDetails.p1Username)
+        : '...';
+
     useEffect(() => {
         API.get(`/problems/${problemId}`).then(res => setProblem(res.data));
+        API.get(`/matches/${matchId}`).then(res => setMatchDetails(res.data)).catch(() => {});
 
         const client = createWebSocketClient((msg) => {
             setResult(msg);
@@ -84,7 +90,7 @@ const Match = () => {
             const results = await Promise.all(
                 allTestCases.map(async (tc) => {
                     const judgeRes = await API.post(
-                        `/judge/execute?language=python&version=3.10.0&stdin=${encodeURIComponent(tc.input)}`,
+                        `/judge/execute?language=python&version=3.12.0&stdin=${encodeURIComponent(tc.input)}`,
                         code,
                         { headers: { 'Content-Type': 'text/plain' } }
                     );
@@ -118,6 +124,15 @@ const Match = () => {
 
     return (
         <div style={{ display: 'flex', height: '100vh', fontFamily: 'monospace', background: '#1e1e1e', color: '#d4d4d4' }}>
+
+            {matchDetails && (
+                <div style={{
+                    position: 'fixed', bottom: 8, left: 8, zIndex: 9999,
+                    fontSize: 10, color: 'rgba(255,255,255,0.15)', fontFamily: 'monospace',
+                }}>
+                    Match #{matchDetails.matchId} | P1: {matchDetails.p1Username} ({matchDetails.p1Id}) | P2: {matchDetails.p2Username} ({matchDetails.p2Id})
+                </div>
+            )}
 
             {/* LEFT PANEL */}
             <div style={{ width: `${leftWidth}%`, overflowY: 'auto', padding: '24px', borderRight: '1px solid #333' }}>
@@ -178,7 +193,12 @@ const Match = () => {
 
                 {/* TOP BAR */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid #333', background: '#252526', flexShrink: 0 }}>
-                    <span style={{ color: '#ffa500', fontWeight: 'bold', fontSize: '16px' }}>⏱ {formatTime(timer)}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <span style={{ color: '#ffa500', fontWeight: 'bold', fontSize: '16px' }}>⏱ {formatTime(timer)}</span>
+                        <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '13px' }}>
+                            vs <span style={{ color: '#5ed29c', fontWeight: 600 }}>{opponentUsername}</span>
+                        </span>
+                    </div>
                     <button
                         onClick={handleSubmit}
                         style={{ background: '#4ec94e', color: '#000', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
