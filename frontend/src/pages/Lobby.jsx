@@ -205,19 +205,23 @@ export default function Lobby() {
     // WebSocket — listen for match found
     useEffect(() => {
         if (!userId) return;
-        const client = createWebSocketClient((match) => {
-            if (match && match.id) {
-                if (pollRef.current) clearInterval(pollRef.current);
-                setSearching(false);
-                navigate('/match', {
-                    state: {
-                        matchId: match.id,
-                        userId,
-                        problemId: match.problemId
-                    }
-                });
-            }
-        }, userId, (err) => console.warn('WS fallback to polling:', err));
+        const client = createWebSocketClient({
+            onMatchUpdate: (match) => {
+                if (match && match.id) {
+                    if (pollRef.current) clearInterval(pollRef.current);
+                    setSearching(false);
+                    navigate('/match', {
+                        state: {
+                            matchId: match.id,
+                            userId,
+                            problemId: match.problemId
+                        }
+                    });
+                }
+            },
+            userId,
+            onError: (err) => console.warn('WS fallback to polling:', err)
+        });
         return () => client.deactivate();
     }, [userId, navigate]);
 

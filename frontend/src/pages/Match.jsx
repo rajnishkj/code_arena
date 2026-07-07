@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import createWebSocketClient from '../services/websocket';
 import API from '../services/api';
 
 const Match = () => {
     const location = useLocation();
+    const navigate = useNavigate();
     const { matchId, userId, problemId } = location.state || {};
 
     const [problem, setProblem] = useState(null);
@@ -14,31 +15,119 @@ const Match = () => {
     const [timer, setTimer] = useState(300);
     const [result, setResult] = useState(null);
     const [activeTab, setActiveTab] = useState('testcases');
+    const [matchOver, setMatchOver] = useState(false);
+    const [matchWon, setMatchWon] = useState(null);
+    const [opponentAlive, setOpponentAlive] = useState(true);
+    const [disconnectWarn, setDisconnectWarn] = useState(false);
+
+    const forfeitSent = useRef(false);
+    const lostOpponent = useRef(false);
 
     const opponentUsername = matchDetails
         ? (String(userId) === String(matchDetails.p1Id) ? matchDetails.p2Username : matchDetails.p1Username)
         : '...';
 
+    const opponentId = matchDetails
+        ? (String(userId) === String(matchDetails.p1Id) ? matchDetails.p2Id : matchDetails.p1Id)
+        : null;
+
     useEffect(() => {
         API.get(`/problems/${problemId}`).then(res => setProblem(res.data));
         API.get(`/matches/${matchId}`).then(res => setMatchDetails(res.data)).catch(() => {});
 
-        const client = createWebSocketClient((msg) => {
-            setResult(msg);
+        const client = createWebSocketClient({
+            onMatchUpdate: () => {},
+            onMatchResult: (msg) => {
+                const won = String(msg.winner) === String(userId);
+                setMatchWon(won);
+                setMatchOver(true);
+            },
+            userId,
         });
-
-        const countdown = setInterval(() => {
-            setTimer(t => {
-                if (t <= 0) { clearInterval(countdown); return 0; }
-                return t - 1;
-            });
-        }, 1000);
 
         return () => {
             client.deactivate();
-            clearInterval(countdown);
         };
-    }, [problemId]);
+    }, [problemId, matchId, userId]);
+
+    useEffect(() => {
+        if (matchOver) return;
+        const id = setInterval(() => {
+            setTimer(t => {
+                if (t <= 0) { clearInterval(id); return 0; }
+                return t - 1;
+            });
+        }, 1000);
+        return () => clearInterval(id);
+    }, [matchOver]);
+
+    useEffect(() => {
+        if (!matchId || !userId || matchOver) return;
+        const onLeave = () => {
+            if (forfeitSent.current) return;
+            forfeitSent.current = true;
+            navigator.sendBeacon(
+                `http://localhost:8080/api/matches/forfeit?matchId=${matchId}&userId=${userId}`
+            );
+        };
+        window.addEventListener('beforeunload', onLeave);
+        return () => window.removeEventListener('beforeunload', onLeave);
+    }, [matchId, userId, matchOver]);
+
+    // Heartbeat — ping server every 5s
+    useEffect(() => {
+        if (!matchId || !userId || matchOver) return;
+        const id = setInterval(() => {
+            API.post('/matches/heartbeat', null, { params: { matchId, userId } }).catch(() => {});
+        }, 2000);
+        return () => clearInterval(id);
+    }, [matchId, userId, matchOver]);
+
+    // Opponent alive check — poll every 5s, auto-forfeit after 10s dark
+    useEffect(() => {
+        if (!matchId || !userId || !opponentId || matchOver) return;
+        const id = setInterval(async () => {
+            try {
+                const res = await API.get('/matches/heartbeat/status', {
+                    params: { matchId, userId, opponentId }
+                });
+                const alive = res.data.opponentAlive;
+                setOpponentAlive(alive);
+                if (!alive) {
+                    if (lostOpponent.current) {
+                        setDisconnectWarn(true);
+                        if (forfeitSent.current) return;
+                        forfeitSent.current = true;
+                        await API.post('/matches/forfeit', null, { params: { matchId, userId } });
+                        endMatch(true);
+                    } else {
+                        lostOpponent.current = true;
+                    }
+                } else {
+                    lostOpponent.current = false;
+                    setDisconnectWarn(false);
+                }
+            } catch {}
+        }, 2000);
+        return () => clearInterval(id);
+    }, [matchId, userId, opponentId, matchOver]);
+
+    const doForfeit = async () => {
+        if (forfeitSent.current || matchOver) return;
+        forfeitSent.current = true;
+        try {
+            await API.post('/matches/forfeit', null, { params: { matchId, userId } });
+            endMatch(false);
+        } catch {
+            forfeitSent.current = false;
+        }
+    };
+
+    const endMatch = (won) => {
+        setMatchWon(won);
+        setMatchOver(true);
+        forfeitSent.current = true;
+    };
 
     const [leftWidth, setLeftWidth] = useState(45);
     const [isDragging, setIsDragging] = useState(false);
@@ -84,9 +173,10 @@ const Match = () => {
     }, [isDraggingVertical]);
 
     const handleSubmit = async () => {
-        try {
-            const allTestCases = problem?.testCases || [];
+        if (matchOver) return;
+        const allTestCases = problem?.testCases || [];
 
+        try {
             const results = await Promise.all(
                 allTestCases.map(async (tc) => {
                     const judgeRes = await API.post(
@@ -101,7 +191,6 @@ const Match = () => {
             const passed = results.filter(Boolean).length;
             const total = results.length;
             setResult({ passed, total, results });
-
             setActiveTab('output');
 
             await API.post('/matches/complete', null, {
@@ -112,7 +201,13 @@ const Match = () => {
                     p2Time: 300 - timer
                 }
             });
+
+            endMatch(true);
         } catch (err) {
+            if (err.response?.status === 409) {
+                endMatch(false);
+                return;
+            }
             setResult({ error: err.message });
             setActiveTab('output');
         }
@@ -123,7 +218,44 @@ const Match = () => {
     const sampleTestCases = problem?.testCases?.filter(tc => tc.sample) || [];
 
     return (
-        <div style={{ display: 'flex', height: '100vh', fontFamily: 'monospace', background: '#1e1e1e', color: '#d4d4d4' }}>
+        <div style={{ position: 'relative', display: 'flex', height: '100vh', fontFamily: 'monospace', background: '#1e1e1e', color: '#d4d4d4' }}>
+
+            {matchOver && (
+                <div style={{
+                    position: 'absolute', inset: 0, zIndex: 9998,
+                    background: 'rgba(0,0,0,0.7)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    gap: 20,
+                }}>
+                    <div style={{
+                        background: '#252526', border: '1px solid #333', borderRadius: 16,
+                        padding: '40px 48px', textAlign: 'center',
+                    }}>
+                        <span style={{
+                            fontSize: 48, fontWeight: 800,
+                            color: matchWon ? '#4ec94e' : '#ff4444',
+                        }}>
+                            {matchWon ? 'YOU WIN' : 'YOU LOSE'}
+                        </span>
+                        {result && (
+                            <p style={{ margin: '16px 0 0', fontSize: 14, color: '#888' }}>
+                                {result.passed} / {result.total} Test Cases Passed
+                            </p>
+                        )}
+                        <button
+                            onClick={() => navigate('/lobby')}
+                            style={{
+                                marginTop: 24, padding: '12px 32px', borderRadius: 10, border: 'none',
+                                background: '#5ed29c', color: '#070b0a',
+                                fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 700,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            Back to Lobby
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {matchDetails && (
                 <div style={{
@@ -198,13 +330,38 @@ const Match = () => {
                         <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '13px' }}>
                             vs <span style={{ color: '#5ed29c', fontWeight: 600 }}>{opponentUsername}</span>
                         </span>
+                        {!matchOver && !opponentAlive && (
+                            <span style={{ color: '#ff4444', fontSize: '11px', fontWeight: 600 }}>
+                                ⚠ disconnected
+                            </span>
+                        )}
                     </div>
-                    <button
-                        onClick={handleSubmit}
-                        style={{ background: '#4ec94e', color: '#000', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
-                    >
-                        Submit
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {!matchOver && (
+                            <button
+                                onClick={() => { if (window.confirm('Forfeit match?')) doForfeit(); }}
+                                style={{
+                                    background: 'transparent', border: '1px solid #ff4444',
+                                    color: '#ff4444', padding: '8px 16px', borderRadius: '6px',
+                                    fontWeight: 'bold', fontSize: '12px', cursor: 'pointer',
+                                }}
+                            >
+                                Forfeit
+                            </button>
+                        )}
+                        <button
+                            onClick={handleSubmit}
+                            disabled={matchOver}
+                            style={{
+                                background: matchOver ? '#555' : '#4ec94e',
+                                color: matchOver ? '#888' : '#000',
+                                border: 'none', padding: '8px 20px', borderRadius: '6px',
+                                fontWeight: 'bold', cursor: matchOver ? 'not-allowed' : 'pointer'
+                            }}
+                        >
+                            {matchOver ? 'Finished' : 'Submit'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* EDITOR */}
@@ -219,6 +376,7 @@ const Match = () => {
                             fontSize: 14,
                             minimap: { enabled: false },
                             scrollBeyondLastLine: false,
+                            readOnly: matchOver,
                         }}
                     />
                 </div>
@@ -295,7 +453,5 @@ const Match = () => {
         </div>
     );
 }
-
-
 
 export default Match;

@@ -88,6 +88,20 @@ public class MatchService {
         return saved;
     }
 
+    public Match forfeitMatch(Long matchId, Long userId) {
+        System.out.println("forfeitMatch called for matchId: " + matchId + " userId: " + userId);
+
+        Match match = matchRepository.findById(matchId)
+                .orElseThrow(() -> new RuntimeException("Match not found"));
+
+        if (match.getWinner() != null) {
+            return match;
+        }
+
+        Long opponent = match.getP1().equals(userId) ? match.getP2() : match.getP1();
+        return completeMatch(matchId, opponent, 300, 300);
+    }
+
     public Optional<MatchDetailsDTO> getMatchDetails(Long matchId) {
         return matchRepository.findById(matchId).map(match -> {
             User p1 = userService.getUserById(match.getP1());
