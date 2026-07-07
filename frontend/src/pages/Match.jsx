@@ -102,6 +102,11 @@ const STYLES = `
   cursor: pointer;
   transition: color 0.2s, background 0.2s;
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 `;
 
 function injectStyles() {
@@ -129,6 +134,14 @@ const Match = () => {
     const [matchWon, setMatchWon] = useState(null);
     const [opponentAlive, setOpponentAlive] = useState(true);
     const [eloChange, setEloChange] = useState(null);
+    const [connectionLost, setConnectionLost] = useState(false);
+    const [toasts, setToasts] = useState([]);
+
+    const addToast = (message, type = 'error') => {
+        const id = Date.now();
+        setToasts(prev => [...prev, { id, message, type }]);
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+    };
 
     const forfeitSent = useRef(false);
     const lostOpponent = useRef(false);
@@ -174,15 +187,16 @@ const Match = () => {
 
     useEffect(() => {
         API.get(`/problems/${problemId}`).then(res => setProblem(res.data));
-        API.get(`/matches/${matchId}`).then(res => setMatchDetails(res.data)).catch(() => {});
+        API.get(`/matches/${matchId}`).then(res => setMatchDetails(res.data)).catch(() => addToast('Failed to load match details'));
 
         const client = createWebSocketClient({
-            onMatchUpdate: () => {},
+            onMatchUpdate: () => setConnectionLost(false),
             onMatchResult: (msg) => {
                 setEloChange(extractEloChange(msg, userId));
                 setMatchWon(String(msg.winner) === String(userId));
                 setMatchOver(true);
             },
+            onError: () => setConnectionLost(true),
             userId,
         });
 
@@ -246,7 +260,7 @@ const Match = () => {
     useEffect(() => {
         if (!matchId || !userId || matchOver) return;
         const id = setInterval(() => {
-            API.post('/matches/heartbeat', null, { params: { matchId, userId } }).catch(() => {});
+            API.post('/matches/heartbeat', null, { params: { matchId, userId } }).catch(() => addToast('Heartbeat failed — connection may be unstable'));
         }, 2000);
         return () => clearInterval(id);
     }, [matchId, userId, matchOver]);
@@ -273,7 +287,7 @@ const Match = () => {
                 } else {
                     lostOpponent.current = false;
                 }
-            } catch {}
+            } catch { addToast('Failed to check opponent status'); }
         }, 2000);
         return () => clearInterval(id);
     }, [matchId, userId, opponentId, matchOver]);
@@ -286,6 +300,7 @@ const Match = () => {
             endMatch(false);
         } catch {
             forfeitSent.current = false;
+            addToast('Forfeit request failed — try again');
         }
     };
 
@@ -295,19 +310,22 @@ const Match = () => {
         if (samples.length === 0) return;
 
         try {
-            const results = await Promise.all(
+            const caseResults = await Promise.all(
                 samples.map(async (tc) => {
                     const judgeRes = await API.post(
                         `/judge/execute?language=python&version=3.12.0&stdin=${encodeURIComponent(tc.input)}`,
                         code,
                         { headers: { 'Content-Type': 'text/plain' } }
                     );
-                    return String(judgeRes.data).trim() === tc.expectedOutput.trim();
+                    const actualOutput = String(judgeRes.data).trim();
+                    return { passed: actualOutput === tc.expectedOutput.trim(), actualOutput };
                 })
             );
 
-            const passed = results.filter(Boolean).length;
-            setResult({ passed, total: results.length, results, isRun: true });
+            const passed = caseResults.filter(r => r.passed).length;
+            const results = caseResults.map(r => r.passed);
+            const outputs = caseResults.map(r => r.actualOutput);
+            setResult({ passed, total: results.length, results, outputs, isRun: true });
             setActiveTab('output');
         } catch (err) {
             setResult({ error: err.message, isRun: true });
@@ -369,31 +387,35 @@ const Match = () => {
         const allTestCases = problem?.testCases || [];
 
         try {
-            const results = await Promise.all(
+            const caseResults = await Promise.all(
                 allTestCases.map(async (tc) => {
                     const judgeRes = await API.post(
                         `/judge/execute?language=python&version=3.12.0&stdin=${encodeURIComponent(tc.input)}`,
                         code,
                         { headers: { 'Content-Type': 'text/plain' } }
                     );
-                    return String(judgeRes.data).trim() === tc.expectedOutput.trim();
+                    const actualOutput = String(judgeRes.data).trim();
+                    return { passed: actualOutput === tc.expectedOutput.trim(), actualOutput };
                 })
             );
 
-            const passed = results.filter(Boolean).length;
-            const total = results.length;
-            setResult({ passed, total, results, isRun: false });
+            const passed = caseResults.filter(r => r.passed).length;
+            const total = caseResults.length;
+            const results = caseResults.map(r => r.passed);
+            const outputs = caseResults.map(r => r.actualOutput);
+            setResult({ passed, total, results, outputs, isRun: false });
             setActiveTab('output');
 
-            const res = await API.post('/matches/complete', null, {
-                params: {
-                    matchId,
-                    winner: userId
-                }
-            });
-            setEloChange(extractEloChange(res.data, userId));
-
-            endMatch(true);
+            if (passed === total) {
+                const res = await API.post('/matches/complete', null, {
+                    params: {
+                        matchId,
+                        winner: userId
+                    }
+                });
+                setEloChange(extractEloChange(res.data, userId));
+                endMatch(true);
+            }
         } catch (err) {
             if (err.response?.status === 409) {
                 endMatch(false);
@@ -429,6 +451,17 @@ const Match = () => {
             </svg>
 
             <NavBar />
+
+            {connectionLost && (
+                <div style={{
+                    position: 'fixed', top: 76, left: 0, right: 0, zIndex: 9999,
+                    background: 'rgba(255,68,68,0.9)', backdropFilter: 'blur(8px)',
+                    textAlign: 'center', padding: '8px 16px',
+                    fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600, color: '#fff',
+                }}>
+                    ⚠ Connection lost — retrying...
+                </div>
+            )}
 
             {/* ── MATCH OVER OVERLAY ── */}
             {matchOver && (
@@ -559,10 +592,10 @@ const Match = () => {
                                 )}
                                 <button
                                     onClick={handleSubmit}
-                                    disabled={matchOver}
+                                    disabled={matchOver || connectionLost}
                                     className="mc-btn-green"
                                 >
-                                    {matchOver ? 'Finished' : 'Submit'}
+                                    {matchOver ? 'Finished' : connectionLost ? 'Reconnecting…' : 'Submit'}
                                 </button>
                             </div>
                         </div>
@@ -633,7 +666,7 @@ const Match = () => {
                                                 {result.isRun && <span style={{ fontSize: 10, color: '#569cd6', background: 'rgba(86,156,214,0.15)', padding: '2px 8px', borderRadius: 4, letterSpacing: '0.06em' }}>SAMPLE</span>}
                                                 {result.passed} / {result.total} Test Cases Passed
                                             </p>
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                                 {result.results.map((passed, i) => (
                                                     <div key={i} style={{
                                                         padding: '6px 12px',
@@ -643,10 +676,27 @@ const Match = () => {
                                                         fontSize: 12,
                                                         fontWeight: 700,
                                                         fontFamily: "'Inter', sans-serif",
+                                                        display: 'inline-block',
+                                                        alignSelf: 'flex-start',
                                                     }}>
                                                         {passed ? '✅' : '❌'} {result.isRun ? 'Sample' : 'Case'} {i + 1}
                                                     </div>
                                                 ))}
+                                                {result.outputs?.some(o => o) && !result.results.every(Boolean) && (
+                                                    <pre style={{
+                                                        margin: '4px 0 0',
+                                                        fontFamily: 'monospace',
+                                                        fontSize: 11,
+                                                        color: '#ff6b6b',
+                                                        background: 'rgba(255,68,68,0.06)',
+                                                        padding: '8px 12px',
+                                                        borderRadius: 6,
+                                                        whiteSpace: 'pre-wrap',
+                                                        wordBreak: 'break-all',
+                                                    }}>
+                                                        {result.outputs[result.results.indexOf(false)]}
+                                                    </pre>
+                                                )}
                                             </div>
                                         </div>
                                     ) : (
@@ -658,6 +708,18 @@ const Match = () => {
                     </div>
                 </div>
             </div>
+            {toasts.map(t => (
+                <div key={t.id} style={{
+                    position: 'fixed', bottom: 48, right: 16, zIndex: 99999,
+                    background: t.type === 'error' ? 'rgba(255,68,68,0.92)' : 'rgba(94,210,156,0.92)',
+                    backdropFilter: 'blur(8px)',
+                    padding: '10px 18px', borderRadius: 8,
+                    fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600, color: '#fff',
+                    animation: 'fadeIn 0.2s ease',
+                }}>
+                    {t.message}
+                </div>
+            ))}
         </div>
     );
 }
