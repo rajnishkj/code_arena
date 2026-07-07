@@ -19,6 +19,7 @@ const Match = () => {
     const [matchWon, setMatchWon] = useState(null);
     const [opponentAlive, setOpponentAlive] = useState(true);
     const [disconnectWarn, setDisconnectWarn] = useState(false);
+    const [isRun, setIsRun] = useState(false);
 
     const forfeitSent = useRef(false);
     const lostOpponent = useRef(false);
@@ -123,6 +124,34 @@ const Match = () => {
         }
     };
 
+    const handleRun = async () => {
+        if (matchOver) return;
+        const samples = problem?.testCases?.filter(tc => tc.sample) || [];
+        if (samples.length === 0) return;
+
+        try {
+            const results = await Promise.all(
+                samples.map(async (tc) => {
+                    const judgeRes = await API.post(
+                        `/judge/execute?language=python&version=3.12.0&stdin=${encodeURIComponent(tc.input)}`,
+                        code,
+                        { headers: { 'Content-Type': 'text/plain' } }
+                    );
+                    return String(judgeRes.data).trim() === tc.expectedOutput.trim();
+                })
+            );
+
+            const passed = results.filter(Boolean).length;
+            setResult({ passed, total: results.length, results, isRun: true });
+            setIsRun(true);
+            setActiveTab('output');
+        } catch (err) {
+            setResult({ error: err.message, isRun: true });
+            setIsRun(true);
+            setActiveTab('output');
+        }
+    };
+
     const endMatch = (won) => {
         setMatchWon(won);
         setMatchOver(true);
@@ -190,7 +219,8 @@ const Match = () => {
 
             const passed = results.filter(Boolean).length;
             const total = results.length;
-            setResult({ passed, total, results });
+            setResult({ passed, total, results, isRun: false });
+            setIsRun(false);
             setActiveTab('output');
 
             await API.post('/matches/complete', null, {
@@ -332,17 +362,29 @@ const Match = () => {
                         </span>
                         {!matchOver && !opponentAlive && (
                             <span style={{ color: '#ff4444', fontSize: '11px', fontWeight: 600 }}>
-                                ⚠ disconnected
+                                ⚠ opponent disconnected
                             </span>
                         )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         {!matchOver && (
                             <button
+                                onClick={handleRun}
+                                style={{
+                                    background: '#2d2d2d', border: '1px solid #569cd6',
+                                    color: '#569cd6', padding: '8px 14px', borderRadius: '6px',
+                                    fontWeight: 'bold', fontSize: '12px', cursor: 'pointer',
+                                }}
+                            >
+                                Run
+                            </button>
+                        )}
+                        {!matchOver && (
+                            <button
                                 onClick={() => { if (window.confirm('Forfeit match?')) doForfeit(); }}
                                 style={{
                                     background: 'transparent', border: '1px solid #ff4444',
-                                    color: '#ff4444', padding: '8px 16px', borderRadius: '6px',
+                                    color: '#ff4444', padding: '8px 14px', borderRadius: '6px',
                                     fontWeight: 'bold', fontSize: '12px', cursor: 'pointer',
                                 }}
                             >
@@ -425,7 +467,8 @@ const Match = () => {
                                 <pre style={{ color: '#ff4444', margin: 0 }}>{result.error}</pre>
                             ) : result ? (
                                 <div>
-                                    <p style={{ color: result.passed === result.total ? '#4ec94e' : '#ffa500', fontWeight: 'bold', margin: '0 0 12px' }}>
+                                    <p style={{ display: 'flex', alignItems: 'center', gap: 8, color: result.passed === result.total ? '#4ec94e' : '#ffa500', fontWeight: 'bold', margin: '0 0 12px' }}>
+                                        {result.isRun && <span style={{ fontSize: 10, color: '#569cd6', background: '#1e3a5f', padding: '2px 8px', borderRadius: 4 }}>SAMPLE</span>}
                                         {result.passed} / {result.total} Test Cases Passed
                                     </p>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -438,7 +481,7 @@ const Match = () => {
                                                 fontSize: '13px',
                                                 fontWeight: 'bold'
                                             }}>
-                                                {passed ? '✅' : '❌'} Case {i + 1}
+                                                {passed ? '✅' : '❌'} {result.isRun ? 'Sample' : 'Case'} {i + 1}
                                             </div>
                                         ))}
                                     </div>
