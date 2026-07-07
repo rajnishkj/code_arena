@@ -117,6 +117,15 @@ function injectStyles() {
     document.head.appendChild(el);
 }
 
+const LANGUAGES = [
+    { id: 'python', label: 'Python', version: '3.12.0', monaco: 'python' },
+    { id: 'javascript', label: 'JavaScript', version: '18.15.0', monaco: 'javascript' },
+    { id: 'java', label: 'Java', version: '15.0.2', monaco: 'java' },
+    { id: 'c++', label: 'C++', version: '10.2.0', monaco: 'cpp' },
+    { id: 'go', label: 'Go', version: '1.16.2', monaco: 'go' },
+    { id: 'rust', label: 'Rust', version: '1.68.2', monaco: 'rust' },
+];
+
 const Match = () => {
     const location = useLocation();
     const navigate = useNavigate();
@@ -136,6 +145,7 @@ const Match = () => {
     const [eloChange, setEloChange] = useState(null);
     const [connectionLost, setConnectionLost] = useState(false);
     const [toasts, setToasts] = useState([]);
+    const [language, setLanguage] = useState(LANGUAGES[0]);
 
     const addToast = (message, type = 'error') => {
         const id = Date.now();
@@ -313,7 +323,7 @@ const Match = () => {
             const caseResults = await Promise.all(
                 samples.map(async (tc) => {
                     const judgeRes = await API.post(
-                        `/judge/execute?language=python&version=3.12.0&stdin=${encodeURIComponent(tc.input)}`,
+                        `/judge/execute?language=${encodeURIComponent(language.id)}&version=${encodeURIComponent(language.version)}&stdin=${encodeURIComponent(tc.input)}`,
                         code,
                         { headers: { 'Content-Type': 'text/plain' } }
                     );
@@ -390,7 +400,7 @@ const Match = () => {
             const caseResults = await Promise.all(
                 allTestCases.map(async (tc) => {
                     const judgeRes = await API.post(
-                        `/judge/execute?language=python&version=3.12.0&stdin=${encodeURIComponent(tc.input)}`,
+                        `/judge/execute?language=${encodeURIComponent(language.id)}&version=${encodeURIComponent(language.version)}&stdin=${encodeURIComponent(tc.input)}`,
                         code,
                         { headers: { 'Content-Type': 'text/plain' } }
                     );
@@ -584,6 +594,25 @@ const Match = () => {
                                 )}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <select
+                                    value={language.id}
+                                    onChange={e => {
+                                        const lang = LANGUAGES.find(l => l.id === e.target.value);
+                                        if (lang) setLanguage(lang);
+                                    }}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.6)',
+                                        border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9999,
+                                        padding: '8px 12px', fontSize: 11, fontFamily: "'Inter', sans-serif",
+                                        fontWeight: 600, cursor: 'pointer', outline: 'none',
+                                    }}
+                                >
+                                    {LANGUAGES.map(l => (
+                                        <option key={l.id} value={l.id} style={{ background: '#1a1a1a', color: '#fff' }}>
+                                            {l.label} ({l.version})
+                                        </option>
+                                    ))}
+                                </select>
                                 {!matchOver && (
                                     <button onClick={handleRun} className="mc-btn-blue">Run</button>
                                 )}
@@ -604,7 +633,7 @@ const Match = () => {
                         <div style={{ flex: 1, overflow: 'hidden', marginTop: 10, borderRadius: 12 }}>
                             <Editor
                                 height="100%"
-                                defaultLanguage="python"
+                                language={language.monaco}
                                 value={code}
                                 onChange={(value) => setCode(value)}
                                 theme="vs-dark"

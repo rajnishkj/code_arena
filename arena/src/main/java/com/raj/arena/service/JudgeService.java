@@ -16,8 +16,6 @@ public class JudgeService {
     private static final String PISTON_URL = "http://localhost:2000/api/v2/execute";
 
     public String executeCode(String sourceCode, String language, String version, String stdin) {
-        RestTemplate restTemplate = new RestTemplate();
-
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("User-Agent", "code-arena-app");
@@ -32,9 +30,10 @@ public class JudgeService {
         body.put("stdin", stdin);
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-        Map<String, Object> response = restTemplate.postForObject(PISTON_URL, request, Map.class);
+        Map<String, Object> response = new RestTemplate().postForObject(PISTON_URL, request, Map.class);
 
-        if (response == null) return "No response";
+        if (response == null)
+            return "No response";
 
         if (response.containsKey("error")) {
             return "Piston error: " + response.get("error");
@@ -44,7 +43,8 @@ public class JudgeService {
         }
 
         Map<?, ?> run = (Map<?, ?>) response.get("run");
-        if (run == null) return "No run result in Piston response";
+        if (run == null)
+            return "No run result in Piston response";
 
         String output = (String) run.get("output");
         return output != null ? output : "No output";
