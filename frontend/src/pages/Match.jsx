@@ -384,6 +384,14 @@ const Match = () => {
 
     const [editorHeight, setEditorHeight] = useState(60);
     const [isDraggingVertical, setIsDraggingVertical] = useState(false);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 767px)');
+        const handler = (e) => setIsMobile(e.matches);
+        mq.addEventListener('change', handler);
+        return () => mq.removeEventListener('change', handler);
+    }, []);
 
     useEffect(() => {
         const handleMouseMove = (e) => {
@@ -568,10 +576,10 @@ const Match = () => {
 
             {/* ── MAIN LAYOUT ── */}
             <div ref={cardRef} style={{ position: 'relative', zIndex: 10, height: '100vh', paddingTop: 76 }}>
-                <div style={{ display: 'flex', height: 'calc(100vh - 76px)', padding: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: 'calc(100vh - 76px)', padding: '12px' }}>
 
                     {/* ── LEFT PANEL (Problem) ── */}
-                    <div className="mc-glass" style={{ width: `${leftWidth}%`, overflowY: 'auto', padding: '20px', marginRight: '10px' }}>
+                    <div className="mc-glass" style={{ width: isMobile ? '100%' : `${leftWidth}%`, maxHeight: isMobile ? '35vh' : 'none', overflowY: 'auto', padding: '20px', marginRight: isMobile ? 0 : '10px', marginBottom: isMobile ? 10 : 0 }}>
                         {problem ? (
                             <>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -618,13 +626,15 @@ const Match = () => {
                     </div>
 
                     {/* ── DIVIDER ── */}
+                    {!isMobile && (
                     <div
                         onMouseDown={handleMouseDown}
                         style={{ width: '4px', cursor: 'col-resize', background: isDragging ? 'rgba(94,210,156,0.3)' : 'rgba(255,255,255,0.06)', borderRadius: 2, flexShrink: 0, transition: 'background 0.2s' }}
                     />
+                    )}
 
                     {/* ── RIGHT PANEL ── */}
-                    <div id="right-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginLeft: '10px', overflow: 'hidden' }}>
+                    <div id="right-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginLeft: isMobile ? 0 : '10px', overflow: 'hidden' }}>
 
                         {/* ── TOP BAR ── */}
                         <div className="mc-glass" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', flexShrink: 0 }}>
