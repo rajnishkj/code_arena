@@ -47,6 +47,8 @@ export default function Leaderboard() {
     const rowsRef = useRef([]);
 
     const [users, setUsers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
 
     // Styles
     useEffect(() => { injectStyles(); }, []);
@@ -69,8 +71,14 @@ export default function Leaderboard() {
 
     // Fetch + card entrance
     useEffect(() => {
+        setLoading(true);
+        setError(false);
         API.get('/users/leaderboard').then(res => {
             setUsers(res.data);
+            setLoading(false);
+        }).catch(() => {
+            setError(true);
+            setLoading(false);
         });
         if (cardRef.current) {
             gsap.fromTo(cardRef.current,
@@ -219,7 +227,14 @@ export default function Leaderboard() {
                         color: 'rgba(255,255,255,0.5)',
                     }}>[ LEADERBOARD ]</span>
 
-                    {users.map((user, index) => (
+                    {loading ? (
+                        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'rgba(255,255,255,0.3)', textAlign: 'center', padding: '24px 0' }}>Loading leaderboard...</p>
+                    ) : error ? (
+                        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: '#ff6b6b', textAlign: 'center', padding: '24px 0' }}>Failed to load leaderboard</p>
+                    ) : users.length === 0 ? (
+                        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'rgba(255,255,255,0.3)', textAlign: 'center', padding: '24px 0' }}>No players yet</p>
+                    ) : (
+                        users.map((user, index) => (
                         <div
                             key={user.id}
                             ref={el => rowsRef.current[index] = el}
@@ -246,7 +261,8 @@ export default function Leaderboard() {
                                 {user.elo} ELO
                             </span>
                         </div>
-                    ))}
+                    ))
+                    )}
 
                 </div>
             </div>

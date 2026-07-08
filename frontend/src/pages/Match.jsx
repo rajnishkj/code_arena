@@ -146,12 +146,17 @@ const Match = () => {
     const [connectionLost, setConnectionLost] = useState(false);
     const [toasts, setToasts] = useState([]);
     const [language, setLanguage] = useState(LANGUAGES[0]);
+    const [running, setRunning] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [problemError, setProblemError] = useState(false);
 
     const addToast = (message, type = 'error') => {
         const id = Date.now();
         setToasts(prev => [...prev, { id, message, type }]);
         setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
     };
+
+    const isNetworkError = (err) => !err.response || err.response.status >= 502;
 
     const forfeitSent = useRef(false);
     const lostOpponent = useRef(false);
@@ -197,7 +202,7 @@ const Match = () => {
         String(match.p1) === String(uid) ? match.p1EloChange : match.p2EloChange;
 
     useEffect(() => {
-        API.get(`/problems/${problemId}`).then(res => setProblem(res.data)).catch(() => { });
+        API.get(`/problems/${problemId}`).then(res => setProblem(res.data)).catch(() => { setProblemError(true); addToast('Failed to load problem'); });
         API.get(`/matches/${matchId}`).then(res => setMatchDetails(res.data)).catch(() => addToast('Failed to load match details'));
 
         const client = createWebSocketClient({
@@ -320,10 +325,11 @@ const Match = () => {
     };
 
     const handleRun = async () => {
-        if (matchOver) return;
+        if (matchOver || running || submitting) return;
         const samples = problem?.testCases?.filter(tc => tc.sample) || [];
         if (samples.length === 0) return;
 
+        setRunning(true);
         try {
             const caseResults = await Promise.all(
                 samples.map(async (tc) => {
@@ -343,9 +349,10 @@ const Match = () => {
             setResult({ passed, total: results.length, results, outputs, isRun: true });
             setActiveTab('output');
         } catch (err) {
-            setResult({ error: err.message, isRun: true });
+            setResult({ error: isNetworkError(err) ? 'Judge service unavailable — try again' : err.message, isRun: true });
             setActiveTab('output');
         }
+        setRunning(false);
     };
 
     const endMatch = (won) => {
@@ -398,9 +405,10 @@ const Match = () => {
     }, [isDraggingVertical]);
 
     const handleSubmit = async () => {
-        if (matchOver) return;
+        if (matchOver || submitting || running) return;
         const allTestCases = problem?.testCases || [];
 
+        setSubmitting(true);
         try {
             const caseResults = await Promise.all(
                 allTestCases.map(async (tc) => {
@@ -435,9 +443,10 @@ const Match = () => {
                 endMatch(false);
                 return;
             }
-            setResult({ error: err.message });
+            setResult({ error: isNetworkError(err) ? 'Judge service unavailable — try again' : err.message });
             setActiveTab('output');
         }
+        setSubmitting(false);
     };
 
     const sampleTestCases = problem?.testCases?.filter(tc => tc.sample) || [];
@@ -601,6 +610,8 @@ const Match = () => {
                                     </div>
                                 ))}
                             </>
+                        ) : problemError ? (
+                            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: '#ff6b6b' }}>Failed to load problem</p>
                         ) : (
                             <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>Loading problem...</p>
                         )}
@@ -648,17 +659,17 @@ const Match = () => {
                                     ))}
                                 </select>
                                 {!matchOver && (
-                                    <button onClick={handleRun} className="mc-btn-blue">Run</button>
+                                    <button onClick={handleRun} className="mc-btn-blue" disabled={running || submitting || connectionLost}>{running ? 'Running...' : 'Run'}</button>
                                 )}
                                 {!matchOver && (
                                     <button onClick={() => { if (window.confirm('Forfeit match?')) doForfeit(); }} className="mc-btn-red">Forfeit</button>
                                 )}
                                 <button
                                     onClick={handleSubmit}
-                                    disabled={matchOver || connectionLost}
+                                    disabled={matchOver || connectionLost || running || submitting}
                                     className="mc-btn-green"
                                 >
-                                    {matchOver ? 'Finished' : connectionLost ? 'Reconnecting…' : 'Submit'}
+                                    {matchOver ? 'Finished' : submitting ? 'Submitting...' : connectionLost ? 'Reconnecting…' : 'Submit'}
                                 </button>
                             </div>
                         </div>
