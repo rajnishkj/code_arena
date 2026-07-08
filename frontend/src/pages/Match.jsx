@@ -155,6 +155,7 @@ const Match = () => {
 
     const forfeitSent = useRef(false);
     const lostOpponent = useRef(false);
+    const matchEndReason = useRef('');
 
     useEffect(() => { injectStyles(); }, []);
 
@@ -166,11 +167,11 @@ const Match = () => {
             const hls = new Hls({ enableWorker: false });
             hls.loadSource(HLS_STREAM_URL);
             hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => { }));
             return () => hls.destroy();
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = HLS_STREAM_URL;
-            video.play().catch(() => {});
+            video.play().catch(() => { });
         }
     }, []);
 
@@ -196,15 +197,19 @@ const Match = () => {
         String(match.p1) === String(uid) ? match.p1EloChange : match.p2EloChange;
 
     useEffect(() => {
-        API.get(`/problems/${problemId}`).then(res => setProblem(res.data)).catch(() => {});
+        API.get(`/problems/${problemId}`).then(res => setProblem(res.data)).catch(() => { });
         API.get(`/matches/${matchId}`).then(res => setMatchDetails(res.data)).catch(() => addToast('Failed to load match details'));
 
         const client = createWebSocketClient({
             onMatchUpdate: () => setConnectionLost(false),
             onMatchResult: (msg) => {
                 setEloChange(extractEloChange(msg, userId));
-                setMatchWon(String(msg.winner) === String(userId));
+                const won = String(msg.winner) === String(userId);
+                setMatchWon(won);
                 setMatchOver(true);
+                if (!matchEndReason.current) {
+                    matchEndReason.current = won ? 'opponent_forfeit' : 'opponent_complete';
+                }
             },
             onError: () => setConnectionLost(true),
             userId,
@@ -286,6 +291,7 @@ const Match = () => {
                     if (lostOpponent.current) {
                         if (forfeitSent.current) return;
                         forfeitSent.current = true;
+                        matchEndReason.current = 'disconnect_win';
                         await API.post('/matches/complete', null, { params: { matchId } });
                         endMatch(true);
                     } else {
@@ -302,11 +308,13 @@ const Match = () => {
     const doForfeit = async () => {
         if (forfeitSent.current || matchOver) return;
         forfeitSent.current = true;
+        matchEndReason.current = 'forfeit';
         try {
             await API.post('/matches/forfeit', null, { params: { matchId } });
             endMatch(false);
         } catch {
             forfeitSent.current = false;
+            matchEndReason.current = '';
             addToast('Forfeit request failed — try again');
         }
     };
@@ -414,6 +422,7 @@ const Match = () => {
             setActiveTab('output');
 
             if (passed === total) {
+                matchEndReason.current = 'submit';
                 const res = await API.post('/matches/complete', null, {
                     params: { matchId }
                 });
@@ -422,6 +431,7 @@ const Match = () => {
             }
         } catch (err) {
             if (err.response?.status === 409) {
+                matchEndReason.current = 'opponent_faster';
                 endMatch(false);
                 return;
             }
@@ -433,6 +443,29 @@ const Match = () => {
     const sampleTestCases = problem?.testCases?.filter(tc => tc.sample) || [];
 
     if (!matchId || !userId) return <Navigate to="/lobby" replace />;
+
+    const getMatchOverTitle = () => {
+        switch (matchEndReason.current) {
+            case 'submit': return 'Victory!';
+            case 'forfeit': return 'You forfeited';
+            case 'disconnect_win': return 'You Win';
+            case 'opponent_forfeit': return 'Opponent forfeited';
+            case 'opponent_complete': return 'You Lose';
+            case 'opponent_faster': return 'Opponent was faster';
+            default: return matchWon ? 'You Win' : 'You Lose';
+        }
+    };
+
+    const getMatchOverSubtitle = () => {
+        switch (matchEndReason.current) {
+            case 'submit': return 'All test cases passed';
+            case 'disconnect_win': return 'Opponent disconnected';
+            case 'opponent_forfeit': return '';
+            case 'opponent_complete': return 'Opponent solved the problem';
+            case 'opponent_faster': return 'Opponent completed all test cases first';
+            default: return '';
+        }
+    };
 
     return (
         <div style={{ position: 'relative', height: '100vh', overflow: 'hidden', background: '#070b0a' }}>
@@ -484,8 +517,13 @@ const Match = () => {
                             fontStyle: 'italic',
                             color: matchWon ? '#5ed29c' : '#ff6b6b',
                         }}>
-                            {matchWon ? 'You Win' : 'You Lose'}
+                            {getMatchOverTitle()}
                         </span>
+                        {getMatchOverSubtitle() && (
+                            <p style={{ margin: '8px 0 0', fontFamily: "'Inter', sans-serif", fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>
+                                {getMatchOverSubtitle()}
+                            </p>
+                        )}
                         {result && !result.isRun && (
                             <p style={{ margin: '16px 0 0', fontFamily: "'Inter', sans-serif", fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>
                                 {result.passed} / {result.total} Test Cases Passed
