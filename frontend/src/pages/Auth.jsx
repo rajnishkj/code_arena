@@ -192,8 +192,9 @@ export default function Auth() {
         setLoading(true); setMode('login'); setMsg({ text: '', ok: false });
         try {
             const res = await API.post('/users/login', { username, password });
+            localStorage.setItem('token', res.data.token);
             localStorage.setItem('username', res.data.username);
-            localStorage.setItem('userId', res.data.id);
+            localStorage.setItem('userId', res.data.userId);
             setOk('Welcome back, ' + res.data.username + '!');
             setTimeout(() => navigate('/lobby'), 800);
         } catch (err) {
@@ -216,10 +217,10 @@ export default function Auth() {
                     const res = await API.post('/users/register', {
                         username,
                         encrypted_password: password,
-                        elo: 800,
                     });
+                    localStorage.setItem('token', res.data.token);
                     localStorage.setItem('username', res.data.username);
-                    localStorage.setItem('userId', res.data.id);
+                    localStorage.setItem('userId', res.data.userId);
                     setOk('Account created! Entering arena…');
                     setTimeout(() => navigate('/lobby'), 800);
                 } catch (regErr) {

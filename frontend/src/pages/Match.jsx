@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import Hls from 'hls.js';
 import { gsap } from 'gsap';
@@ -196,7 +196,7 @@ const Match = () => {
         String(match.p1) === String(uid) ? match.p1EloChange : match.p2EloChange;
 
     useEffect(() => {
-        API.get(`/problems/${problemId}`).then(res => setProblem(res.data));
+        API.get(`/problems/${problemId}`).then(res => setProblem(res.data)).catch(() => {});
         API.get(`/matches/${matchId}`).then(res => setMatchDetails(res.data)).catch(() => addToast('Failed to load match details'));
 
         const client = createWebSocketClient({
@@ -220,9 +220,6 @@ const Match = () => {
         const onLeave = () => {
             if (forfeitSent.current) return;
             forfeitSent.current = true;
-                    navigator.sendBeacon(
-                        `http://localhost:8080/api/matches/forfeit?matchId=${matchId}&userId=${userId}`
-                    );
         };
         window.addEventListener('beforeunload', onLeave);
         return () => window.removeEventListener('beforeunload', onLeave);
@@ -270,7 +267,7 @@ const Match = () => {
     useEffect(() => {
         if (!matchId || !userId || matchOver) return;
         const id = setInterval(() => {
-            API.post('/matches/heartbeat', null, { params: { matchId, userId } }).catch(() => addToast('Heartbeat failed — connection may be unstable'));
+            API.post('/matches/heartbeat', null, { params: { matchId } }).catch(() => addToast('Heartbeat failed — connection may be unstable'));
         }, 2000);
         return () => clearInterval(id);
     }, [matchId, userId, matchOver]);
@@ -281,7 +278,7 @@ const Match = () => {
         const id = setInterval(async () => {
             try {
                 const res = await API.get('/matches/heartbeat/status', {
-                    params: { matchId, userId, opponentId }
+                    params: { matchId, opponentId }
                 });
                 const alive = res.data.opponentAlive;
                 setOpponentAlive(alive);
@@ -289,7 +286,7 @@ const Match = () => {
                     if (lostOpponent.current) {
                         if (forfeitSent.current) return;
                         forfeitSent.current = true;
-                        await API.post('/matches/complete', null, { params: { matchId, winner: userId } });
+                        await API.post('/matches/complete', null, { params: { matchId } });
                         endMatch(true);
                     } else {
                         lostOpponent.current = true;
@@ -306,7 +303,7 @@ const Match = () => {
         if (forfeitSent.current || matchOver) return;
         forfeitSent.current = true;
         try {
-            await API.post('/matches/forfeit', null, { params: { matchId, userId } });
+            await API.post('/matches/forfeit', null, { params: { matchId } });
             endMatch(false);
         } catch {
             forfeitSent.current = false;
@@ -418,10 +415,7 @@ const Match = () => {
 
             if (passed === total) {
                 const res = await API.post('/matches/complete', null, {
-                    params: {
-                        matchId,
-                        winner: userId
-                    }
+                    params: { matchId }
                 });
                 setEloChange(extractEloChange(res.data, userId));
                 endMatch(true);
@@ -437,6 +431,8 @@ const Match = () => {
     };
 
     const sampleTestCases = problem?.testCases?.filter(tc => tc.sample) || [];
+
+    if (!matchId || !userId) return <Navigate to="/lobby" replace />;
 
     return (
         <div style={{ position: 'relative', height: '100vh', overflow: 'hidden', background: '#070b0a' }}>

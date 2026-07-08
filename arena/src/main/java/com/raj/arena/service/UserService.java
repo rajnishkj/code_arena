@@ -5,7 +5,7 @@ import com.raj.arena.model.User;
 import com.raj.arena.repository.SolvedProblemRepository;
 import com.raj.arena.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Sort;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -24,8 +24,18 @@ public class UserService {
     @Autowired
     private SolvedProblemRepository solvedProblemRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     public User createUser(User user) {
+        user.setEncrypted_password(passwordEncoder.encode(user.getEncrypted_password()));
+        if (user.getElo() == 0) user.setElo(800);
         return userRepository.save(user);
+    }
+
+    public Optional<User> authenticate(String username, String rawPassword) {
+        return userRepository.findByUsername(username)
+                .filter(user -> passwordEncoder.matches(rawPassword, user.getEncrypted_password()));
     }
 
     public Optional<User> getUserByUsername(String username) {

@@ -166,6 +166,7 @@ export default function Lobby() {
     const [user, setUser] = useState(null);
     const [status, setStatus] = useState('');
     const [searching, setSearching] = useState(false);
+    const [joinErr, setJoinErr] = useState('');
 
     // Styles
     useEffect(() => { injectStyles(); }, []);
@@ -189,7 +190,7 @@ export default function Lobby() {
     // Fetch user data
     useEffect(() => {
         if (!userId) return;
-        API.get(`/users/id/${userId}`).then(res => setUser(res.data)).catch(() => {});
+        API.get('/users/me').then(res => setUser(res.data)).catch(() => {});
     }, [userId]);
 
     // Card entrance
@@ -296,15 +297,19 @@ export default function Lobby() {
     const joinQueue = async () => {
         setSearching(true);
         setStatus('Scanning for opponents...');
+        setJoinErr('');
         try {
-            await API.post('/matchmaking/join', null, { params: { userId } });
+            await API.post('/matchmaking/join');
         } catch (err) {
-            console.error('Join queue error:', err);
+            setSearching(false);
+            setStatus('');
+            setJoinErr(err.response?.data?.error || 'Failed to join queue — try again');
+            return;
         }
 
         pollRef.current = setInterval(async () => {
             try {
-                const res = await API.get('/matchmaking/status', { params: { userId } });
+                const res = await API.get('/matchmaking/status');
                 if (res.data && res.data.id) {
                     clearInterval(pollRef.current);
                     setSearching(false);
@@ -322,9 +327,10 @@ export default function Lobby() {
 
     const leaveQueue = async () => {
         if (pollRef.current) clearInterval(pollRef.current);
-        try { await API.post('/matchmaking/leave', null, { params: { userId } }); } catch {}
+        try { await API.post('/matchmaking/leave'); } catch {}
         setSearching(false);
         setStatus('');
+        setJoinErr('');
     };
 
     // ── Not logged in ──
@@ -453,6 +459,12 @@ export default function Lobby() {
                             fontFamily: 'Inter, sans-serif', fontSize: 12, color: '#5ed29c',
                             textAlign: 'center', margin: 0,
                         }}>{status}</p>
+                    )}
+                    {joinErr && (
+                        <p style={{
+                            fontFamily: 'Inter, sans-serif', fontSize: 12, color: '#ff6b6b',
+                            textAlign: 'center', margin: 0,
+                        }}>{joinErr}</p>
                     )}
 
                     {/* ── Info ── */}

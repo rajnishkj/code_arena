@@ -129,7 +129,7 @@ export default function AccountDropdown({ open, onClose }) {
     // Fetch user on open
     useEffect(() => {
         if (!userId || !open) return;
-        API.get(`/users/id/${userId}`).then(res => {
+        API.get('/users/me').then(res => {
             setUser(res.data);
             setName(res.data.name || '');
             setEmail(res.data.email || '');
@@ -148,6 +148,7 @@ export default function AccountDropdown({ open, onClose }) {
     };
 
     const handleLogout = () => {
+        localStorage.removeItem('token');
         localStorage.removeItem('userId');
         localStorage.removeItem('username');
         setUser(null);
