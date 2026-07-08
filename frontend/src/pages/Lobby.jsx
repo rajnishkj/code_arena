@@ -475,7 +475,7 @@ export default function Lobby() {
                             <span>Elo range: —</span>
                         )}
                         <span>•</span>
-                        <span>Avg wait: ~30s</span>
+                        <span>Avg wait: ~0.5s</span>
                     </div>
 
                 </div>
