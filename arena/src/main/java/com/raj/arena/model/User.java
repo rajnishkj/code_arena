@@ -30,5 +30,8 @@ public class User {
 
     private boolean isGuest = false;
 
+    @ColumnDefault("false")
+    private boolean isAdmin = false;
+
     private LocalDateTime created_at;
 }

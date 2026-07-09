@@ -2,6 +2,8 @@ package com.raj.arena.model;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -19,22 +21,28 @@ public class Problem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "Title is required")
     private String title;
 
+    @NotBlank(message = "Description is required")
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @NotBlank(message = "Input format is required")
     @Column(columnDefinition = "TEXT")
     private String inputFormat;
 
+    @NotBlank(message = "Output format is required")
     @Column(columnDefinition = "TEXT")
     private String outputFormat;
 
     @Column(columnDefinition = "TEXT")
     private String constraints;
 
+    @NotBlank(message = "Difficulty is required")
     private String difficulty;
 
+    @NotNull(message = "Rating is required")
     private int rating;
 
     private int avgSolvingTime;
