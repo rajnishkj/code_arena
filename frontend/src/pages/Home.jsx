@@ -156,7 +156,7 @@ export default function Home() {
     }, []);
 
     return (
-        <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden', fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ position: 'relative', minHeight: '100vh', overflow: 'auto', fontFamily: 'Inter, sans-serif' }}>
 
             {/* ── Video Background ── */}
             <video
@@ -165,17 +165,17 @@ export default function Home() {
                 loop
                 playsInline
                 style={{
-                    position: 'absolute',
+                    position: 'fixed',
                     inset: 0,
                     width: '100%',
                     height: '100%',
                     objectFit: 'cover',
-                    opacity: 0.6,
+                    opacity: 1,
                     zIndex: 0,
                 }}
             />
 
-            {/* ── Cursor Spotlight Overlay ── */}
+            {/* ── Cursor Spotlight Overlay ── *
             <div
                 ref={spotlightRef}
                 style={{
@@ -185,6 +185,7 @@ export default function Home() {
                     transition: 'background 0.05s linear',
                 }}
             />
+            */}
 
             {/* ── Gradient Overlays ── */}
             <div style={{
@@ -195,22 +196,7 @@ export default function Home() {
                 position: 'absolute', inset: 0, zIndex: 1,
                 background: 'linear-gradient(to top, #070b0a 0%, transparent 50%)',
             }} />
-
-            {/* ── Vertical Grid Lines ── */}
-            <div className="ca-grid-lines" style={{
-                position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none',
-            }}>
-                {[25, 50, 75].map(pct => (
-                    <div key={pct} style={{
-                        position: 'absolute',
-                        left: `${pct}%`,
-                        top: 0,
-                        bottom: 0,
-                        width: '1px',
-                        background: 'rgba(255,255,255,0.07)',
-                    }} />
-                ))}
-            </div>
+            
 
             {/* ── Central Glow ── */}
             <svg
@@ -286,9 +272,9 @@ export default function Home() {
                         margin: 0,
                         lineHeight: 1.35,
                     }}>
-                        Sometimes Recommended by{' '}
+                        Recommended by{' '}
                         <em style={{ fontFamily: 'Instrument Serif, serif', fontStyle: 'italic', color: '#5ed29c' }}>
-                            Influencers
+                            Striver, Neetcode, Love Babbar, CodeWithHarry...
                         </em>{' '}
 
                     </p>
@@ -377,6 +363,74 @@ export default function Home() {
                     Visits: {visitCount}
                 </div>
             )}
+
+            {/* ── About Section ── */}
+            <section style={{
+                position: 'relative', zIndex: 10,
+                padding: '100px 48px 120px',
+                maxWidth: 740,
+                margin: '0 auto',
+                fontFamily: "'Courier New', Courier, monospace",
+            }}>
+                <div style={{
+                    background: 'rgba(7,11,10,0.85)',
+                    borderRadius: 16,
+                    padding: '48px 56px',
+                }}>
+                    <p style={{ color: '#5ed29c', fontSize: 11, letterSpacing: '0.16em', marginBottom: 8 }}>
+                        
+                    </p>
+
+                    <h1 style={{
+                        fontSize: 36, fontWeight: 700, color: '#fff', margin: 0, marginBottom: 4,
+                    }}>
+                        About.md
+                    </h1>
+
+                    <p style={{ color: '#5ed29c', fontSize: 13, marginBottom: 60 }}>
+                        A Real-Time 1v1 Coding Duel Platform
+                    </p>
+
+                    {/* HOW IT WORKS */}
+                    <h2 style={{ color: '#5ed29c', fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
+                        (⌐■_■)
+                    </h2>
+                    <p style={{ color: 'rgba(255,255,255,0.80)', fontSize: 14, lineHeight: 1.8, marginBottom: 48 }}>
+                        Code Arena is a competitive coding platform where you face real opponents in
+                        real-time 1v1 duels. When you join a match, both you and your opponent receive
+                        the same problem. The first to submit a correct solution wins. Every match
+                        updates your Elo rating, so every victory and defeat directly impacts your
+                        rank on the leaderboard. It's just you, your code, and the clock.
+                    </p>
+
+
+                    {/* GETTING STARTED */}
+                    <h2 style={{ color: '#5ed29c', fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
+                        🏁 
+                    </h2>
+                    <p style={{ color: 'rgba(255,255,255,0.80)', fontSize: 14, lineHeight: 1.8, marginBottom: 48 }}>
+                        To begin, create an account and set your username. Browse the leaderboard to
+                        see the top competitors and understand the ranking system. When you're ready,
+                        head to the Lobby to queue for a match. The system will find an opponent at a
+                        similar Elo, present you both with the same problem, and the duel begins.
+                        After the match, your rating is automatically updated — win or lose, you'll
+                        see exactly where you stand.
+                    </p>
+                    
+                    <div style={{
+                        marginTop: 80, height: 1,
+                        background: 'rgba(255,255,255,0.06)',
+                    }} />
+
+                    <p style={{
+                        marginTop: 24, fontSize: 11,
+                        color: 'rgba(255,255,255,0.15)',
+                        textAlign: 'center',
+                    }}>
+                        // end of about.md
+                    </p>
+                </div>
+            </section>
         </div>
     );
 }
