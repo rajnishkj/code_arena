@@ -1,9 +1,10 @@
 """FastAPI application factory: config, CORS, lifespan, routers."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
@@ -11,6 +12,7 @@ from app.database import Base, engine
 from app.errors import register_exception_handlers
 from app.redis_client import ping_redis
 from app.routers import users, visits
+from app.ws import manager
 
 # Importing the models registers all six tables on Base.metadata, which is what
 # create_all below has to work from.
@@ -30,6 +32,10 @@ async def lifespan(app: FastAPI):
     ping_redis()
     logger.info("Redis connected at %s:%s", settings.redis_host, settings.redis_port)
 
+    # Synchronous service code pushes to sockets from threadpool workers, so
+    # the manager needs a handle on this loop to hop back onto.
+    manager.bind_loop(asyncio.get_running_loop())
+
     yield
 
 
@@ -46,3 +52,27 @@ register_exception_handlers(app)
 
 app.include_router(users.router)
 app.include_router(visits.router)
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(
+    websocket: WebSocket, user_id: int = Query(alias="userId")
+) -> None:
+    """Public, like the STOMP endpoint it replaces: the `userId` query param is
+    the only addressing, and it is not authenticated - a client that lies about
+    it receives another user's match pushes, exactly as subscribing to
+    `/topic/match/{id}` allowed before.
+
+    The receive loop exists only to notice the disconnect. Inbound frames are
+    read and discarded; the client never sends any.
+    """
+    await manager.connect(user_id, websocket)
+    try:
+        while True:
+            message = await websocket.receive()
+            if message["type"] == "websocket.disconnect":
+                break
+    except WebSocketDisconnect:
+        pass
+    finally:
+        manager.disconnect(user_id, websocket)

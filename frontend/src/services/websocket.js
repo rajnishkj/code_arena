@@ -1,35 +1,50 @@
-import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
+// Native WebSocket client, replacing the STOMP/SockJS one. The server pushes
+// `{type, payload}` frames on a per-user socket; this file only listens.
+// Lobby.jsx and Match.jsx use nothing but the callbacks below and deactivate().
+
+const WS_URL = 'ws://localhost:8080/ws';
 
 const createWebSocketClient = ({ onMatchUpdate, onMatchResult, userId, onError } = {}) => {
-    const client = new Client({
-        webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
-        onConnect: () => {
-            if (userId) {
-                client.subscribe(`/topic/match/${userId}`, (message) => {
-                    onMatchUpdate?.(JSON.parse(message.body));
-                });
-                client.subscribe(`/topic/match-result/${userId}`, (message) => {
-                    onMatchResult?.(JSON.parse(message.body));
-                });
-            } else {
-                client.subscribe('/topic/match', (message) => {
-                    onMatchUpdate?.(JSON.parse(message.body));
-                });
-            }
-        },
-        onStompError: (frame) => {
-            console.error('STOMP error:', frame);
-            onError?.('STOMP connection failed');
-        },
-        onWebSocketClose: () => {
-            console.warn('WebSocket closed');
-            onError?.('WebSocket connection lost');
-        }
-    });
+    const socket = new WebSocket(`${WS_URL}?userId=${encodeURIComponent(userId)}`);
 
-    client.activate();
-    return client;
+    // Set by deactivate() so a teardown on unmount is not reported as a
+    // dropped connection — the pages render a "connection lost" banner on it.
+    let closedByClient = false;
+
+    socket.onmessage = (event) => {
+        let frame;
+        try {
+            frame = JSON.parse(event.data);
+        } catch (err) {
+            console.warn('WebSocket: unparseable frame', event.data);
+            return;
+        }
+        if (frame.type === 'match') {
+            onMatchUpdate?.(frame.payload);
+        } else if (frame.type === 'match-result') {
+            onMatchResult?.(frame.payload);
+        }
+    };
+
+    socket.onerror = () => {
+        if (closedByClient) return;
+        console.error('WebSocket error');
+        onError?.('WebSocket connection failed');
+    };
+
+    socket.onclose = () => {
+        if (closedByClient) return;
+        console.warn('WebSocket closed');
+        onError?.('WebSocket connection lost');
+    };
+
+    return {
+        deactivate: () => {
+            closedByClient = true;
+            // close() is legal while still CONNECTING; it aborts the handshake.
+            socket.close();
+        }
+    };
 };
 
 export default createWebSocketClient;
