@@ -10,7 +10,7 @@ from app.config import settings
 from app.database import Base, engine
 from app.errors import register_exception_handlers
 from app.redis_client import ping_redis
-from app.routers import visits
+from app.routers import users, visits
 
 # Importing the models registers all six tables on Base.metadata, which is what
 # create_all below has to work from.
@@ -44,4 +44,5 @@ app.add_middleware(
 
 register_exception_handlers(app)
 
+app.include_router(users.router)
 app.include_router(visits.router)

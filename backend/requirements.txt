@@ -4,6 +4,6 @@ sqlalchemy
 psycopg[binary]
 redis
 pyjwt
-passlib[bcrypt]
+bcrypt
 httpx
 pydantic-settings
