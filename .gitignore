@@ -15,3 +15,8 @@ docs/agents/
 # Migration — Java backend kept locally, new backend secrets
 legacy/
 backend/.env
+
+# Python backend
+backend/.venv/
+__pycache__/
+*.pyc
