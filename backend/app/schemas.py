@@ -30,12 +30,17 @@ class RegisterRequest(BaseModel):
     `username` and `encrypted_password` are required. Java left them optional and
     answered a body without a password with an NPE-driven 500; a 400 naming the
     missing field is the same rejection, better spelled.
+
+    Registration deliberately does NOT bind `isAdmin`, which Java's
+    `@RequestBody User` did - that made registration a self-serve admin
+    escalation. `elo` stays bindable, faithfully: a registrant can still
+    self-assign one.
     """
 
     model_config = ConfigDict(populate_by_name=True)
 
     username: str
-    encrypted_password: str
+    password: str = Field(alias="encrypted_password")
     name: str | None = None
     email: str | None = None
     # 0 carries "unset" through to the 800 default, as it did in Java.

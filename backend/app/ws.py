@@ -11,8 +11,6 @@ captured during startup and do not wait for delivery: a slow or half-open
 socket must not stall a database transaction.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import threading

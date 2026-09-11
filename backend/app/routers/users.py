@@ -42,7 +42,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> AuthRes
         username=payload.username,
         email=payload.email,
         elo=payload.elo or DEFAULT_ELO,
-        encrypted_password=hash_password(payload.encrypted_password),
+        encrypted_password=hash_password(payload.password),
         is_guest=payload.is_guest,
         # created_at is left NULL: nothing on the Java registration path ever
         # set it, and nothing reads it.
